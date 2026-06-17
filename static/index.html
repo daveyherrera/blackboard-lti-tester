@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BB LTI Tester</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --border: #334155;
+  --muted: #94a3b8;
+  --dim: #475569;
+  --text: #e2e8f0;
+  --bright: #f8fafc;
+  --accent: #6366f1;
+  --success: #4ade80;
+  --error: #f87171;
+  --warning: #fbbf24;
+  --sidebar-w: 220px;
+  --radius: 8px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  min-height: 100vh;
+  font-size: 14px;
+}
+
+/* Sidebar */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+}
+
+.sidebar-header {
+  padding: 20px 16px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-logo {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--bright);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-logo .icon { font-size: 20px; }
+
+.sidebar-subtitle {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  padding-left: 28px;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.nav-item.active { background: rgba(99,102,241,0.15); color: var(--accent); }
+.nav-item .nav-icon { font-size: 16px; width: 18px; text-align: center; }
+
+.sidebar-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.ngrok-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.ngrok-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--dim);
+  flex-shrink: 0;
+}
+.ngrok-dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); }
+
+.ngrok-info { min-width: 0; }
+.ngrok-label { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.ngrok-url { font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+
+/* Main content */
+.main {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-header {
+  padding: 24px 28px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  padding-bottom: 16px;
+  margin-bottom: 0;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--bright);
+}
+
+.page-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.page-content {
+  padding: 24px 28px;
+  flex: 1;
+}
+
+/* Cards */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bright);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Status cards grid */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.status-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.status-card-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.status-card-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--bright);
+}
+
+.status-card-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+.badge-success { background: rgba(74,222,128,0.15); color: var(--success); }
+.badge-warning { background: rgba(251,191,36,0.15); color: var(--warning); }
+.badge-error { background: rgba(248,113,113,0.15); color: var(--error); }
+.badge-accent { background: rgba(99,102,241,0.15); color: var(--accent); }
+.badge-muted { background: rgba(148,163,184,0.1); color: var(--muted); }
+
+/* URL card */
+.url-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.url-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  width: 120px;
+  flex-shrink: 0;
+}
+
+.url-value {
+  flex: 1;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--accent);
+  word-break: break-all;
+}
+
+.copy-btn {
+  padding: 4px 10px;
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 5px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.copy-btn:hover { background: rgba(99,102,241,0.25); }
+.copy-btn.copied { background: rgba(74,222,128,0.15); border-color: rgba(74,222,128,0.3); color: var(--success); }
+
+/* Flow diagram */
+.flow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 16px 0;
+  overflow-x: auto;
+}
+
+.flow-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 120px;
+}
+
+.flow-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.flow-box.highlight {
+  border-color: var(--accent);
+  background: rgba(99,102,241,0.1);
+  color: var(--accent);
+}
+
+.flow-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+  max-width: 120px;
+}
+
+.flow-arrow {
+  color: var(--dim);
+  font-size: 18px;
+  padding: 0 4px;
+  flex-shrink: 0;
+  padding-bottom: 20px;
+}
+
+/* Launches */
+.launches-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+}
+
+.empty-icon { font-size: 40px; margin-bottom: 12px; }
+.empty-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.empty-sub { font-size: 13px; }
+
+.launch-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+  cursor: pointer;
+}
+
+.launch-card:hover { border-color: var(--accent); }
+.launch-card.highlighted { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(99,102,241,0.2); }
+
+.launch-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.launch-id {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--bg);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.launch-time {
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.launch-spacer { flex: 1; }
+
+.launch-user {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.launch-context {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.launch-detail {
+  border-top: 1px solid var(--border);
+  padding: 16px;
+  display: none;
+}
+
+.launch-detail.open { display: block; }
+
+/* JWT Inspector */
+.jwt-section {
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.jwt-section-header {
+  padding: 10px 14px;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  user-select: none;
+}
+
+.jwt-section-header:hover { color: var(--text); }
+.jwt-section-toggle { transition: transform 0.2s; }
+.jwt-section-toggle.open { transform: rotate(90deg); }
+
+.jwt-section-body {
+  padding: 12px 14px;
+  display: none;
+}
+
+.jwt-section-body.open { display: block; }
+
+.claim-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 7px;
+  align-items: flex-start;
+}
+
+.claim-key {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 180px;
+  word-break: break-all;
+}
+
+.claim-value {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text);
+  word-break: break-all;
+  flex: 1;
+}
+
+.claim-value.long { color: var(--muted); }
+
+.roles-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.role-chip {
+  display: flex; flex-direction: column;
+  padding: 4px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.role-label { color: var(--accent); font-weight: 600; }
+.role-urn { color: var(--dim); font-size: 10px; }
+
+.raw-token-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  word-break: break-all;
+  white-space: pre-wrap;
+  max-height: 200px;
+  overflow-y: auto;
+  position: relative;
+}
+
+.raw-copy-btn {
+  position: absolute;
+  top: 8px; right: 8px;
+  padding: 4px 10px;
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 5px;
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* Setup Guide */
+.step-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.step-num {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: rgba(99,102,241,0.2);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.step-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bright);
+  flex: 1;
+}
+
+.step-toggle {
+  color: var(--dim);
+  transition: transform 0.2s;
+}
+.step-toggle.open { transform: rotate(90deg); }
+
+.step-body {
+  padding: 0 20px 16px 62px;
+  display: none;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.step-body.open { display: block; }
+
+.step-body code {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.step-body pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  margin: 10px 0;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--text);
+  overflow-x: auto;
+}
+
+.step-body ul { padding-left: 16px; }
+.step-body li { margin-bottom: 4px; }
+
+/* Settings */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color 0.15s;
+  outline: none;
+}
+
+.form-input:focus { border-color: var(--accent); }
+.form-input:read-only { color: var(--dim); cursor: default; }
+.form-hint { font-size: 11px; color: var(--dim); margin-top: 4px; }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+}
+.btn-primary:hover { background: #5254cc; }
+
+.btn-danger {
+  background: rgba(248,113,113,0.15);
+  border: 1px solid rgba(248,113,113,0.3);
+  color: var(--error);
+}
+.btn-danger:hover { background: rgba(248,113,113,0.25); }
+
+.btn-muted {
+  background: rgba(148,163,184,0.1);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.btn-muted:hover { color: var(--text); background: rgba(148,163,184,0.15); }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 9999;
+  transform: translateY(80px);
+  opacity: 0;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-color: rgba(74,222,128,0.4); }
+.toast.error { border-color: rgba(248,113,113,0.4); }
+
+/* Divider */
+.divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* Notice box */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.notice-warning { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.2); color: var(--warning); }
+.notice-info { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); color: var(--accent); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+.page { display: none; }
+.page.active { display: block; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">
+      <span class="icon">🔑</span>
+      BB LTI Tester
+    </div>
+    <div class="sidebar-subtitle">Blackboard LMS</div>
+  </div>
+  <nav class="sidebar-nav">
+    <button class="nav-item active" data-page="dashboard">
+      <span class="nav-icon">📊</span> Dashboard
+    </button>
+    <button class="nav-item" data-page="launches">
+      <span class="nav-icon">🚀</span> Launches
+    </button>
+    <button class="nav-item" data-page="setup">
+      <span class="nav-icon">📖</span> Setup Guide
+    </button>
+    <button class="nav-item" data-page="settings">
+      <span class="nav-icon">⚙️</span> Settings
+    </button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="ngrok-chip">
+      <div class="ngrok-dot" id="sidebarNgrokDot"></div>
+      <div class="ngrok-info">
+        <div class="ngrok-label">ngrok</div>
+        <div class="ngrok-url" id="sidebarNgrokUrl">not connected</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+
+  <!-- Dashboard -->
+  <div class="page active" id="page-dashboard">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Dashboard</div>
+        <div class="page-subtitle">LTI 1.3 launch tester for Blackboard Learn</div>
+      </div>
+    </div>
+    <div class="page-content">
+      <div class="status-grid">
+        <div class="status-card">
+          <div class="status-card-label">Server</div>
+          <div><span class="status-badge badge-success">● Running</span></div>
+          <div class="status-card-sub">localhost:8080</div>
+        </div>
+        <div class="status-card">
+          <div class="status-card-label">ngrok</div>
+          <div id="dashNgrokBadge"><span class="status-badge badge-warning">○ Not Connected</span></div>
+          <div class="status-card-sub" id="dashNgrokSub">brew install ngrok/ngrok/ngrok</div>
+        </div>
+        <div class="status-card">
+          <div class="status-card-label">Config</div>
+          <div id="dashConfigBadge"><span class="status-badge badge-warning">Incomplete</span></div>
+          <div class="status-card-sub" id="dashConfigSub">Go to Settings</div>
+        </div>
+        <div class="status-card">
+          <div class="status-card-label">Launches Today</div>
+          <div class="status-card-value" id="dashLaunchCount">0</div>
+          <div class="status-card-sub">LTI launches received</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Quick Registration URLs
+          <span id="urlWarning" class="status-badge badge-warning" style="font-size:11px;display:none;">⚠ ngrok not connected</span>
+        </div>
+        <div id="urlNotice" class="notice notice-warning" style="display:none;">
+          <span>⚠</span>
+          <span>ngrok is not running. These localhost URLs won't work for real Blackboard launches. Start ngrok to get a public URL.</span>
+        </div>
+        <div class="url-row">
+          <div class="url-label">OIDC Login URL</div>
+          <div class="url-value" id="urlOidc">—</div>
+          <button class="copy-btn" onclick="copyUrl('urlOidc', this)">Copy</button>
+        </div>
+        <div class="url-row">
+          <div class="url-label">Redirect URL</div>
+          <div class="url-value" id="urlRedirect">—</div>
+          <button class="copy-btn" onclick="copyUrl('urlRedirect', this)">Copy</button>
+        </div>
+        <div class="url-row">
+          <div class="url-label">JWKS URL</div>
+          <div class="url-value" id="urlJwks">—</div>
+          <button class="copy-btn" onclick="copyUrl('urlJwks', this)">Copy</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">How LTI 1.3 Works</div>
+        <div class="flow">
+          <div class="flow-step">
+            <div class="flow-box">Blackboard</div>
+            <div class="flow-label">User clicks LTI tool</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-box highlight">GET /oidc-login</div>
+            <div class="flow-label">This tool receives login_hint</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-box">BB OIDC Auth</div>
+            <div class="flow-label">Tool redirects to Blackboard</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-box highlight">POST /redirect</div>
+            <div class="flow-label">Blackboard sends signed JWT</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-box">Launches Page</div>
+            <div class="flow-label">JWT decoded &amp; inspected</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Launches -->
+  <div class="page" id="page-launches">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Launches</div>
+        <div class="page-subtitle">Received LTI 1.3 launch tokens</div>
+      </div>
+      <button class="btn btn-danger" onclick="clearLaunches()" style="margin-left:auto">🗑 Clear All</button>
+    </div>
+    <div class="page-content">
+      <div id="launchList"></div>
+    </div>
+  </div>
+
+  <!-- Setup Guide -->
+  <div class="page" id="page-setup">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Setup Guide</div>
+        <div class="page-subtitle">Get LTI launches flowing in 5 steps</div>
+      </div>
+    </div>
+    <div class="page-content">
+
+      <div class="step-card">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-num">1</div>
+          <div class="step-title">Install &amp; Start</div>
+          <span class="step-toggle">▶</span>
+        </div>
+        <div class="step-body">
+          <p>Clone the repo and run the start script:</p>
+          <pre>git clone &lt;your-repo-url&gt; bb-lti-tester
+cd bb-lti-tester
+chmod +x start.sh stop.sh
+./start.sh</pre>
+          <p>This will:</p>
+          <ul>
+            <li>Create a Python virtual environment</li>
+            <li>Install all dependencies</li>
+            <li>Generate RSA keys automatically</li>
+            <li>Start the FastAPI server on port 8080</li>
+            <li>Start ngrok tunnel (if installed)</li>
+            <li>Open your browser to the dashboard</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-num">2</div>
+          <div class="step-title">Register in Blackboard Developer Portal</div>
+          <span class="step-toggle">▶</span>
+        </div>
+        <div class="step-body">
+          <p>Go to <code>developer.blackboard.com</code> → My Apps → Create App</p>
+          <p style="margin-top:10px">Fill in these fields:</p>
+          <ul>
+            <li><strong>Application Name:</strong> BB LTI Tester (or any name)</li>
+            <li><strong>OIDC Login Initiation URL:</strong> <span id="setupUrlOidc" style="color:var(--accent);font-family:monospace;font-size:12px">—</span></li>
+            <li><strong>OIDC Redirect URL(s):</strong> <span id="setupUrlRedirect" style="color:var(--accent);font-family:monospace;font-size:12px">—</span></li>
+            <li><strong>JWKS URL:</strong> <span id="setupUrlJwks" style="color:var(--accent);font-family:monospace;font-size:12px">—</span></li>
+          </ul>
+          <p style="margin-top:10px">After creating, you'll receive a <strong>Client ID</strong>. Copy it — you'll need it in Step 3.</p>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-num">3</div>
+          <div class="step-title">Configure This Tool</div>
+          <span class="step-toggle">▶</span>
+        </div>
+        <div class="step-body">
+          <p>Go to <button class="btn btn-muted" style="padding:2px 8px;font-size:12px" onclick="navigate('settings')">⚙ Settings</button> and enter:</p>
+          <ul style="margin-top:10px">
+            <li><strong>Client ID</strong> — from Developer Portal</li>
+            <li><strong>OIDC Auth URL</strong> — <code>https://developer.blackboard.com/api/v1/gateway/oidcauth</code></li>
+            <li><strong>Blackboard JWKS URL</strong> — <code>https://developer.blackboard.com/api/v1/management/applications/keys</code></li>
+          </ul>
+          <p style="margin-top:10px">Click Save. The Config status badge on the dashboard will turn green.</p>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-num">4</div>
+          <div class="step-title">Register in Blackboard Learn</div>
+          <span class="step-toggle">▶</span>
+        </div>
+        <div class="step-body">
+          <p>In your Blackboard Learn instance:</p>
+          <ul>
+            <li>Go to <strong>System Admin → LTI Tool Providers</strong></li>
+            <li>Click <strong>Register LTI 1.3 Tool</strong></li>
+            <li>Enter your <strong>Client ID</strong> from the Developer Portal</li>
+            <li>Approve the tool — you'll get a <strong>Deployment ID</strong></li>
+            <li>Copy the Deployment ID and optionally save it in Settings</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-num">5</div>
+          <div class="step-title">Place &amp; Launch the Tool</div>
+          <span class="step-toggle">▶</span>
+        </div>
+        <div class="step-body">
+          <p>In a Blackboard course:</p>
+          <ul>
+            <li>Edit a content area → <strong>Build Content → LTI Tool</strong></li>
+            <li>Select your registered tool</li>
+            <li>Click <strong>Submit</strong></li>
+            <li>Navigate to the content item and click the tool link</li>
+            <li>Blackboard will call your <code>/oidc-login</code> endpoint</li>
+            <li>You'll be redirected back and the launch will appear in the <button class="btn btn-muted" style="padding:2px 8px;font-size:12px" onclick="navigate('launches')">🚀 Launches</button> page</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="page" id="page-settings">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Settings</div>
+        <div class="page-subtitle">LTI tool configuration</div>
+      </div>
+    </div>
+    <div class="page-content">
+      <div class="card" style="max-width:600px">
+        <div class="card-title">LTI Configuration</div>
+
+        <div class="form-group">
+          <label class="form-label">Client ID</label>
+          <input class="form-input" id="cfgClientId" type="text" placeholder="e.g. 74cd1b89-e6f1-4b96-...">
+          <div class="form-hint">Obtained from developer.blackboard.com after registering your application</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">OIDC Auth URL</label>
+          <input class="form-input" id="cfgOidcUrl" type="text" placeholder="https://developer.blackboard.com/api/v1/gateway/oidcauth">
+          <div class="form-hint">Blackboard's OIDC authorization endpoint</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Blackboard JWKS URL</label>
+          <input class="form-input" id="cfgJwksUrl" type="text" placeholder="https://developer.blackboard.com/api/v1/management/applications/keys">
+          <div class="form-hint">URL to fetch Blackboard's public keys for JWT verification</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Issuer</label>
+          <input class="form-input" id="cfgIssuer" type="text" value="https://blackboard.com" readonly>
+          <div class="form-hint">Always https://blackboard.com — read only</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Deployment ID <span style="color:var(--dim);font-weight:400">(optional)</span></label>
+          <input class="form-input" id="cfgDeploymentId" type="text" placeholder="e.g. 1234567890">
+          <div class="form-hint">From Learn admin panel — used for filtering and reference</div>
+        </div>
+
+        <button class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
+      </div>
+
+      <div class="card" style="max-width:600px;margin-top:0">
+        <div class="card-title">Tool Public Key (JWKS)</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">This tool's public key for Blackboard to verify any JWTs you sign (needed for Deep Linking responses). Auto-generated on first run.</p>
+        <div class="url-row">
+          <div class="url-label">JWKS Endpoint</div>
+          <div class="url-value" id="settingsJwksUrl">http://localhost:8080/jwks</div>
+          <button class="copy-btn" onclick="copyUrl('settingsJwksUrl', this)">Copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let currentPage = 'dashboard';
+let statusData = {};
+let launchData = [];
+let statusInterval, launchInterval;
+
+// ─── Navigation ──────────────────────────────────────────────────────────────
+function navigate(page) {
+  currentPage = page;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelector(`[data-page="${page}"]`).classList.add('active');
+
+  if (page === 'launches') {
+    renderLaunches();
+    clearInterval(launchInterval);
+    launchInterval = setInterval(fetchLaunches, 2000);
+  } else {
+    clearInterval(launchInterval);
+  }
+
+  if (page === 'settings') {
+    fetchConfig();
+  }
+}
+
+document.querySelectorAll('.nav-item').forEach(btn => {
+  btn.addEventListener('click', () => navigate(btn.dataset.page));
+});
+
+// ─── Status polling ───────────────────────────────────────────────────────────
+async function fetchStatus() {
+  try {
+    const res = await fetch('/api/status');
+    statusData = await res.json();
+    updateStatusUI();
+  } catch(e) {}
+}
+
+function updateStatusUI() {
+  const { ngrok_url, config_complete, launch_count } = statusData;
+
+  // Sidebar chip
+  const dot = document.getElementById('sidebarNgrokDot');
+  const urlEl = document.getElementById('sidebarNgrokUrl');
+  if (ngrok_url) {
+    dot.classList.add('connected');
+    urlEl.textContent = ngrok_url.replace('https://', '');
+  } else {
+    dot.classList.remove('connected');
+    urlEl.textContent = 'not connected';
+  }
+
+  // Dashboard badges
+  const base = ngrok_url || 'http://localhost:8080';
+  document.getElementById('urlOidc').textContent = base + '/oidc-login';
+  document.getElementById('urlRedirect').textContent = base + '/redirect';
+  document.getElementById('urlJwks').textContent = base + '/jwks';
+  document.getElementById('setupUrlOidc').textContent = base + '/oidc-login';
+  document.getElementById('setupUrlRedirect').textContent = base + '/redirect';
+  document.getElementById('setupUrlJwks').textContent = base + '/jwks';
+  document.getElementById('settingsJwksUrl').textContent = base + '/jwks';
+
+  // ngrok badge
+  const ngrokBadge = document.getElementById('dashNgrokBadge');
+  const ngrokSub = document.getElementById('dashNgrokSub');
+  const urlWarning = document.getElementById('urlWarning');
+  const urlNotice = document.getElementById('urlNotice');
+
+  if (ngrok_url) {
+    ngrokBadge.innerHTML = `<span class="status-badge badge-success">● Connected</span>`;
+    ngrokSub.textContent = ngrok_url;
+    urlWarning.style.display = 'none';
+    urlNotice.style.display = 'none';
+  } else {
+    ngrokBadge.innerHTML = `<span class="status-badge badge-warning">○ Not Connected</span>`;
+    ngrokSub.textContent = 'brew install ngrok/ngrok/ngrok';
+    urlWarning.style.display = '';
+    urlNotice.style.display = 'flex';
+  }
+
+  // config badge
+  const configBadge = document.getElementById('dashConfigBadge');
+  const configSub = document.getElementById('dashConfigSub');
+  if (config_complete) {
+    configBadge.innerHTML = `<span class="status-badge badge-success">● Complete</span>`;
+    configSub.textContent = 'Client ID configured';
+  } else {
+    configBadge.innerHTML = `<span class="status-badge badge-warning">Incomplete</span>`;
+    configSub.innerHTML = `<a href="#" onclick="navigate('settings');return false" style="color:var(--accent)">Go to Settings</a>`;
+  }
+
+  // launch count
+  document.getElementById('dashLaunchCount').textContent = launch_count || 0;
+}
+
+// ─── Launches ─────────────────────────────────────────────────────────────────
+async function fetchLaunches() {
+  try {
+    const res = await fetch('/api/launches');
+    launchData = await res.json();
+    if (currentPage === 'launches') renderLaunches();
+  } catch(e) {}
+}
+
+function renderLaunches() {
+  const container = document.getElementById('launchList');
+  const urlParams = new URLSearchParams(window.location.search);
+  const highlightId = urlParams.get('launch');
+
+  if (launchData.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🚀</div>
+        <div class="empty-title">No launches yet</div>
+        <div class="empty-sub">Place an LTI tool in a Blackboard course and click it to see launches here.</div>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = launchData.map(l => {
+    const p = l.payload || {};
+    const msgType = getLtiClaim(p, 'message_type') || 'Unknown';
+    const userName = p.name || p.given_name || 'Unknown User';
+    const userEmail = p.email || '';
+    const ctx = getLtiClaim(p, 'context') || {};
+    const courseName = ctx.title || ctx.label || '';
+    const isValid = l.valid;
+    const highlighted = l.id === highlightId;
+
+    return `
+      <div class="launch-card ${highlighted ? 'highlighted' : ''}" id="launch-${l.id}" onclick="toggleLaunch('${l.id}')">
+        <div class="launch-card-header">
+          <span class="launch-id">#${l.id}</span>
+          <span class="launch-time">${relativeTime(l.received_at)}</span>
+          <span class="status-badge badge-accent" style="font-size:11px">${friendlyMsgType(msgType)}</span>
+          <span class="launch-spacer"></span>
+          ${courseName ? `<span class="launch-context">📚 ${escHtml(courseName)}</span>` : ''}
+          <span class="launch-user">👤 ${escHtml(userName)}${userEmail ? ' · ' + escHtml(userEmail) : ''}</span>
+          <span class="status-badge ${isValid ? 'badge-success' : 'badge-error'}">${isValid ? '✓ Valid' : '✗ Invalid'}</span>
+        </div>
+        <div class="launch-detail" id="detail-${l.id}">
+          ${renderJwtInspector(l)}
+        </div>
+      </div>`;
+  }).join('');
+
+  if (highlightId) {
+    const el = document.getElementById('launch-' + highlightId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      openLaunchDetail(highlightId);
+    }
+  }
+}
+
+function toggleLaunch(id) {
+  const detail = document.getElementById('detail-' + id);
+  if (detail) detail.classList.toggle('open');
+}
+
+function openLaunchDetail(id) {
+  const detail = document.getElementById('detail-' + id);
+  if (detail) detail.classList.add('open');
+}
+
+function renderJwtInspector(launch) {
+  const p = launch.payload || {};
+  const h = launch.header || {};
+
+  const roles = getLtiClaim(p, 'roles') || [];
+  const ctx = getLtiClaim(p, 'context') || {};
+  const rl = getLtiClaim(p, 'resource_link') || {};
+  const platform = getLtiClaim(p, 'tool_platform') || {};
+  const ags = getLtiClaim(p, 'endpoint') || {};
+  const nrps = getLtiClaim(p, 'namesroleservice') || {};
+
+  let html = '';
+
+  // Validation error
+  if (!launch.valid && launch.validation_error) {
+    html += `<div class="notice notice-warning" style="margin-bottom:12px">
+      <span>⚠</span>
+      <span><strong>Validation Error:</strong> ${escHtml(launch.validation_error)}</span>
+    </div>`;
+  }
+
+  // Standard claims
+  html += jwtSection('Standard Claims', `
+    ${claimRow('iss', p.iss)}
+    ${claimRow('aud', Array.isArray(p.aud) ? p.aud.join(', ') : p.aud)}
+    ${claimRow('sub', p.sub)}
+    ${claimRow('iat', p.iat ? new Date(p.iat * 1000).toISOString() : '')}
+    ${claimRow('exp', p.exp ? new Date(p.exp * 1000).toISOString() : '')}
+    ${claimRow('nonce', p.nonce)}
+  `);
+
+  // User info
+  html += jwtSection('User Info', `
+    ${claimRow('name', p.name)}
+    ${claimRow('given_name', p.given_name)}
+    ${claimRow('family_name', p.family_name)}
+    ${claimRow('email', p.email)}
+    ${claimRow('picture', p.picture)}
+  `);
+
+  // LTI Claims
+  html += jwtSection('LTI Claims', `
+    ${claimRow('Message Type', getLtiClaim(p, 'message_type'))}
+    ${claimRow('LTI Version', getLtiClaim(p, 'version'))}
+    ${claimRow('Deployment ID', getLtiClaim(p, 'deployment_id'))}
+    ${claimRow('Resource Link ID', rl.id)}
+    ${claimRow('Resource Link Title', rl.title)}
+    ${claimRow('Context ID', ctx.id)}
+    ${claimRow('Context Title', ctx.title)}
+    ${claimRow('Context Type', Array.isArray(ctx.type) ? ctx.type.join(', ') : ctx.type)}
+  `);
+
+  // Roles
+  if (roles.length > 0) {
+    const rolesHtml = `<div class="roles-list">${roles.map(r => {
+      const label = roleLabel(r);
+      return `<div class="role-chip"><span class="role-label">${label}</span><span class="role-urn">${escHtml(r)}</span></div>`;
+    }).join('')}</div>`;
+    html += jwtSection('Roles', rolesHtml, false);
+  }
+
+  // Platform
+  if (Object.keys(platform).length > 0) {
+    html += jwtSection('Platform', `
+      ${claimRow('Product Family', platform.product_family_code)}
+      ${claimRow('Version', platform.version)}
+      ${claimRow('GUID', platform.guid)}
+      ${claimRow('Name', platform.name)}
+      ${claimRow('Description', platform.description)}
+    `);
+  }
+
+  // Services
+  const serviceHtml = `
+    ${ags.lineitems ? claimRow('AGS Line Items', ags.lineitems) : ''}
+    ${ags.lineitem ? claimRow('AGS Line Item', ags.lineitem) : ''}
+    ${ags.scope ? claimRow('AGS Scopes', Array.isArray(ags.scope) ? ags.scope.join(', ') : ags.scope) : ''}
+    ${nrps.context_memberships_url ? claimRow('NRPS Memberships URL', nrps.context_memberships_url) : ''}
+    ${nrps.service_versions ? claimRow('NRPS Versions', nrps.service_versions.join(', ')) : ''}
+  `;
+  if (serviceHtml.trim().replace(/<[^>]*>/g, '').trim()) {
+    html += jwtSection('Services (AGS/NRPS)', serviceHtml);
+  }
+
+  // Blackboard Extensions
+  const bbSessionToken = p['https://blackboard.com/lti/claim/one_time_session_token'];
+  const bbSiteId = p['https://blackboard.com/lti/claim/site_id'];
+  const bbTenantId = p['https://blackboard.com/lti/claim/tenant_id'];
+  if (bbSessionToken || bbSiteId || bbTenantId) {
+    html += jwtSection('Blackboard Extensions', `
+      ${bbSessionToken ? claimRow('Session Token', bbSessionToken) : ''}
+      ${bbSiteId ? claimRow('Site ID', bbSiteId) : ''}
+      ${bbTenantId ? claimRow('Tenant ID', bbTenantId) : ''}
+    `);
+  }
+
+  // Raw Token
+  html += `
+    <div class="jwt-section">
+      <div class="jwt-section-header" onclick="toggleSection(this)">
+        <span>Raw JWT Token</span>
+        <span class="jwt-section-toggle">▶</span>
+      </div>
+      <div class="jwt-section-body">
+        <div style="position:relative">
+          <div class="raw-token-box" id="raw-${launch.id}">${escHtml(launch.raw_token || '')}</div>
+          <button class="raw-copy-btn" onclick="copyRaw('raw-${launch.id}', this)">Copy</button>
+        </div>
+      </div>
+    </div>`;
+
+  return html;
+}
+
+function jwtSection(title, content, claimStyle = true) {
+  return `
+    <div class="jwt-section">
+      <div class="jwt-section-header" onclick="toggleSection(this)">
+        <span>${title}</span>
+        <span class="jwt-section-toggle">▶</span>
+      </div>
+      <div class="jwt-section-body">
+        ${claimStyle ? `<div>${content}</div>` : content}
+      </div>
+    </div>`;
+}
+
+function claimRow(key, value) {
+  if (value === undefined || value === null || value === '') return '';
+  const long = String(value).length > 80;
+  return `<div class="claim-row">
+    <span class="claim-key">${escHtml(String(key))}</span>
+    <span class="claim-value ${long ? 'long' : ''}">${escHtml(String(value))}</span>
+  </div>`;
+}
+
+function toggleSection(header) {
+  const body = header.nextElementSibling;
+  const toggle = header.querySelector('.jwt-section-toggle');
+  body.classList.toggle('open');
+  toggle.classList.toggle('open');
+}
+
+function getLtiClaim(payload, claim) {
+  return payload[`https://purl.imsglobal.org/spec/lti/claim/${claim}`];
+}
+
+function friendlyMsgType(t) {
+  const map = {
+    'LtiResourceLinkRequest': 'Resource Link',
+    'LtiDeepLinkingRequest': 'Deep Linking',
+    'LtiSubmissionReviewRequest': 'Submission Review',
+    'LtiStartAssessmentRequest': 'Assessment',
+  };
+  return map[t] || t;
+}
+
+function roleLabel(urn) {
+  const map = {
+    'http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor': 'Instructor',
+    'http://purl.imsglobal.org/vocab/lis/v2/membership#Learner': 'Student',
+    'http://purl.imsglobal.org/vocab/lis/v2/membership#ContentDeveloper': 'Content Developer',
+    'http://purl.imsglobal.org/vocab/lis/v2/membership#Mentor': 'Mentor',
+    'http://purl.imsglobal.org/vocab/lis/v2/membership#Manager': 'Manager',
+    'http://purl.imsglobal.org/vocab/lis/v2/institution/person#Administrator': 'Administrator',
+    'http://purl.imsglobal.org/vocab/lis/v2/institution/person#Instructor': 'Instructor (Inst)',
+    'http://purl.imsglobal.org/vocab/lis/v2/institution/person#Student': 'Student (Inst)',
+    'http://purl.imsglobal.org/vocab/lis/v2/institution/person#Staff': 'Staff',
+    'http://purl.imsglobal.org/vocab/lis/v2/system/person#SysAdmin': 'System Admin',
+    'http://purl.imsglobal.org/vocab/lis/v2/system/person#Administrator': 'System Administrator',
+    'http://purl.imsglobal.org/vocab/lis/v2/system/person#User': 'System User',
+  };
+  return map[urn] || urn.split('#')[1] || urn.split('/').pop() || urn;
+}
+
+async function clearLaunches() {
+  await fetch('/api/launches', { method: 'DELETE' });
+  launchData = [];
+  renderLaunches();
+  showToast('All launches cleared', 'success');
+}
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+async function fetchConfig() {
+  try {
+    const res = await fetch('/api/config');
+    const cfg = await res.json();
+    document.getElementById('cfgClientId').value = cfg.client_id || '';
+    document.getElementById('cfgOidcUrl').value = cfg.oidc_auth_url || '';
+    document.getElementById('cfgJwksUrl').value = cfg.jwks_url || '';
+    document.getElementById('cfgIssuer').value = cfg.issuer || 'https://blackboard.com';
+    document.getElementById('cfgDeploymentId').value = cfg.deployment_id || '';
+  } catch(e) {}
+}
+
+async function saveConfig() {
+  const cfg = {
+    client_id: document.getElementById('cfgClientId').value.trim(),
+    oidc_auth_url: document.getElementById('cfgOidcUrl').value.trim(),
+    jwks_url: document.getElementById('cfgJwksUrl').value.trim(),
+    issuer: document.getElementById('cfgIssuer').value.trim(),
+    deployment_id: document.getElementById('cfgDeploymentId').value.trim(),
+  };
+  try {
+    await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cfg)
+    });
+    showToast('Config saved ✓', 'success');
+    fetchStatus();
+  } catch(e) {
+    showToast('Error saving config', 'error');
+  }
+}
+
+// ─── Setup Guide ──────────────────────────────────────────────────────────────
+function toggleStep(header) {
+  const body = header.nextElementSibling;
+  const toggle = header.querySelector('.step-toggle');
+  body.classList.toggle('open');
+  toggle.classList.toggle('open');
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+function copyUrl(elId, btn) {
+  const text = document.getElementById(elId).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+function copyRaw(elId, btn) {
+  const text = document.getElementById(elId).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+  });
+}
+
+function escHtml(str) {
+  if (str === undefined || str === null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function relativeTime(isoStr) {
+  const diff = (Date.now() - new Date(isoStr + 'Z').getTime()) / 1000;
+  if (diff < 5) return 'just now';
+  if (diff < 60) return `${Math.floor(diff)}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── URL param handling ───────────────────────────────────────────────────────
+function checkUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const launchId = params.get('launch');
+  if (launchId) {
+    navigate('launches');
+    fetchLaunches();
+  }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+fetchStatus();
+statusInterval = setInterval(fetchStatus, 3000);
+checkUrlParams();
+</script>
+</body>
+</html>
