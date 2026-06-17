@@ -1,86 +1,123 @@
-#!/bin/bash
-set -e
-GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'; BOLD='\033[1m'
+#!/usr/bin/env bash
+set -euo pipefail
+# Colors
+R='\033[0;31m' G='\033[0;32m' Y='\033[1;33m' B='\033[0;34m' W='\033[1m' N='\033[0m'
 
-echo -e "${BOLD}🔧 BB LTI Tester${NC}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${W}╔══════════════════════════════╗${N}"
+echo -e "${W}║   BB LTI 1.3 Tester          ║${N}"
+echo -e "${W}╚══════════════════════════════╝${N}"
+echo ""
 
-if ! command -v python3 &>/dev/null; then
-  echo "❌ Python 3 not found. Please install Python 3.8+"; exit 1
-fi
+# ── Preflight checks ──────────────────────────────
+SKIP_NGROK=false
 
-if ! command -v ngrok &>/dev/null; then
-  echo -e "${YELLOW}⚠ ngrok not found.${NC}"
-  echo "  Install: brew install ngrok/ngrok/ngrok"
-  echo "  Or download from: https://ngrok.com/download"
-  echo "  Then run: ngrok config add-authtoken <your-token>"
-  echo ""
-  echo "  Continuing without ngrok (local only)..."
-  NGROK=false
-else
-  NGROK=true
-fi
+check_command() {
+  if ! command -v "$1" &>/dev/null; then
+    echo -e "${R}✗ $1 not found.${N} $2"; return 1
+  fi
+  echo -e "${G}✓${N} $1 found"; return 0
+}
 
+check_command python3 "Install from https://python.org" || exit 1
+check_command ngrok "Install: brew install ngrok/ngrok/ngrok  OR  https://ngrok.com/download" || {
+  echo -e "${Y}  Continuing without ngrok — local testing only${N}"
+  SKIP_NGROK=true
+}
+echo ""
+
+# ── Virtual environment ────────────────────────────
 if [ ! -d "venv" ]; then
-  echo "📦 Setting up virtual environment..."
+  echo -e "📦 Creating virtual environment..."
   python3 -m venv venv
 fi
+# shellcheck disable=SC1091
 source venv/bin/activate
+
+echo "📦 Installing dependencies..."
+pip install -q --upgrade pip
 pip install -q -r requirements.txt
-
-lsof -ti:8080 | xargs kill -9 2>/dev/null || true
-
-echo "🌐 Starting server on http://localhost:8080 ..."
-uvicorn server:app --port 8080 --reload --log-level warning &
-SERVER_PID=$!
-sleep 2
-
-if [ "$NGROK" = true ]; then
-  pkill -f "ngrok http" 2>/dev/null || true
-  sleep 1
-  echo "🔗 Starting ngrok tunnel..."
-  ngrok http 8080 --log=stdout > /tmp/ngrok.log 2>&1 &
-  NGROK_PID=$!
-  sleep 3
-
-  NGROK_URL=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    tunnels = data.get('tunnels', [])
-    https = next((t['public_url'] for t in tunnels if t['proto']=='https'), None)
-    print(https or '')
-except: print('')
-" 2>/dev/null)
-fi
-
-echo ""
-echo -e "${GREEN}✅ Ready!${NC}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "  Local:  ${BOLD}http://localhost:8080${NC}"
-if [ -n "$NGROK_URL" ]; then
-  echo -e "  Public: ${BOLD}$NGROK_URL${NC}"
-  echo ""
-  echo -e "${BOLD}Register these in the Blackboard Developer Portal:${NC}"
-  echo -e "  OIDC Login URL: ${GREEN}$NGROK_URL/oidc-login${NC}"
-  echo -e "  Redirect URL:   ${GREEN}$NGROK_URL/redirect${NC}"
-  echo -e "  JWKS URL:       ${GREEN}$NGROK_URL/jwks${NC}"
-else
-  echo -e "  ${YELLOW}ngrok not running — public URLs not available${NC}"
-fi
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  Press Ctrl+C to stop"
+echo -e "${G}✓${N} Dependencies ready"
 echo ""
 
+# ── Kill any existing processes ───────────────────
+lsof -ti:8080 2>/dev/null | xargs kill -9 2>/dev/null || true
+pkill -f "ngrok http 8080" 2>/dev/null || true
 sleep 1
-open "http://localhost:8080" 2>/dev/null || xdg-open "http://localhost:8080" 2>/dev/null || true
 
+# ── Start FastAPI ─────────────────────────────────
+echo "🌐 Starting FastAPI server..."
+uvicorn server:app --port 8080 --log-level warning &
+SERVER_PID=$!
+
+# Wait until server responds
+for i in {1..20}; do
+  if curl -s http://localhost:8080/api/health > /dev/null 2>&1; then
+    echo -e "${G}✓${N} Server ready at http://localhost:8080"
+    break
+  fi
+  sleep 0.5
+done
+echo ""
+
+# ── Start ngrok ───────────────────────────────────
+NGROK_URL=""
+NGROK_PID=""
+if [ "$SKIP_NGROK" = false ]; then
+  echo "🔗 Starting ngrok tunnel..."
+  ngrok http 8080 --log stdout > /tmp/bb-lti-ngrok.log 2>&1 &
+  NGROK_PID=$!
+
+  # Wait for ngrok API
+  for i in {1..20}; do
+    NGROK_URL=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null \
+      | python3 -c "import sys,json; d=json.load(sys.stdin); print(next((t['public_url'] for t in d.get('tunnels',[]) if t['proto']=='https'),''))" 2>/dev/null || echo "")
+    [ -n "$NGROK_URL" ] && break
+    sleep 0.5
+  done
+
+  if [ -n "$NGROK_URL" ]; then
+    echo -e "${G}✓${N} ngrok tunnel: $NGROK_URL"
+  else
+    echo -e "${Y}⚠ ngrok started but URL not detected. Check http://localhost:4040${N}"
+  fi
+fi
+
+# ── Print registration info ───────────────────────
+echo ""
+echo -e "${W}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"
+if [ -n "$NGROK_URL" ]; then
+  echo -e "${W}Register these in the Blackboard Developer Portal:${N}"
+  echo ""
+  echo -e "  OIDC Login URL  ${G}$NGROK_URL/oidc-login${N}"
+  echo -e "  Redirect URL    ${G}$NGROK_URL/redirect${N}"
+  echo -e "  JWKS URL        ${G}$NGROK_URL/jwks${N}"
+else
+  echo -e "${Y}  ngrok not running — public URLs unavailable${N}"
+  echo -e "  Local only: http://localhost:8080"
+fi
+echo -e "${W}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"
+echo ""
+echo -e "  Dashboard: ${W}https://daveyherrera.github.io/blackboard-lti-tester/${N}"
+echo -e "  Local UI:  ${W}http://localhost:8080/${N}"
+echo ""
+echo -e "  Press ${W}Ctrl+C${N} to stop all services"
+echo ""
+
+# Open browser
+sleep 1
+open "https://daveyherrera.github.io/blackboard-lti-tester/" 2>/dev/null \
+  || xdg-open "https://daveyherrera.github.io/blackboard-lti-tester/" 2>/dev/null || true
+
+# ── Graceful shutdown ─────────────────────────────
 cleanup() {
-  echo -e "\n🛑 Stopping..."
-  kill $SERVER_PID 2>/dev/null || true
-  [ "$NGROK" = true ] && kill $NGROK_PID 2>/dev/null || true
+  echo -e "\n🛑 Shutting down..."
+  kill "$SERVER_PID" 2>/dev/null || true
+  if [ "$SKIP_NGROK" = false ] && [ -n "$NGROK_PID" ]; then
+    kill "$NGROK_PID" 2>/dev/null || true
+  fi
+  echo -e "${G}✓${N} All services stopped"
   exit 0
 }
 trap cleanup INT TERM
 
-wait $SERVER_PID
+wait "$SERVER_PID"
