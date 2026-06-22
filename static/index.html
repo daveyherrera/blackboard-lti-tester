@@ -872,17 +872,17 @@ nav { flex: 1; padding: 10px 8px; }
     <div class="card">
       <div class="card-title"><span class="icon">🔗</span> Registration URLs</div>
       <div class="url-row">
-        <span class="url-label">OIDC Login URL</span>
+        <span class="url-label">Login Initiation URL</span>
         <span class="url-value empty" id="url-oidc">Not available — start ngrok</span>
         <button class="copy-btn" id="copy-oidc" disabled onclick="copyUrl('oidc')">Copy</button>
       </div>
       <div class="url-row">
-        <span class="url-label">Redirect URL</span>
+        <span class="url-label">Tool Redirect URL(s)</span>
         <span class="url-value empty" id="url-redirect">Not available — start ngrok</span>
         <button class="copy-btn" id="copy-redirect" disabled onclick="copyUrl('redirect')">Copy</button>
       </div>
       <div class="url-row">
-        <span class="url-label">JWKS URL</span>
+        <span class="url-label">Tool JWKS URL</span>
         <span class="url-value empty" id="url-jwks">Not available — start ngrok</span>
         <button class="copy-btn" id="copy-jwks" disabled onclick="copyUrl('jwks')">Copy</button>
       </div>
@@ -983,8 +983,8 @@ nav { flex: 1; padding: 10px 8px; }
           <li>Fill in application details, then under <strong>LTI 1.3</strong> settings enter:</li>
         </ol>
         <ul>
-          <li><strong>OIDC Login Initiation URL:</strong> your ngrok URL + <code>/oidc-login</code></li>
-          <li><strong>Tool Redirect URL:</strong> your ngrok URL + <code>/redirect</code></li>
+          <li><strong>Login Initiation URL:</strong> your ngrok URL + <code>/oidc-login</code></li>
+          <li><strong>Tool Redirect URL(s):</strong> your ngrok URL + <code>/redirect</code></li>
           <li><strong>Tool JWKS URL:</strong> your ngrok URL + <code>/jwks</code></li>
         </ul>
         <p>After saving, copy the <strong>Application ID</strong> (this is your Client ID) and the <strong>OIDC Auth URL</strong> and <strong>BB JWKS URL</strong> shown on the app page.</p>
