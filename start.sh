@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # Colors
-R='\033[0;31m' G='\033[0;32m' Y='\033[1;33m' B='\033[0;34m' W='\033[1m' N='\033[0m'
+R='\033[0;31m' G='\033[0;32m' Y='\033[1;33m' W='\033[1m' N='\033[0m'
 
 echo -e "${W}╔══════════════════════════════╗${N}"
 echo -e "${W}║   BB LTI 1.3 Tester          ║${N}"
@@ -9,7 +9,6 @@ echo -e "${W}╚═════════════════════�
 echo ""
 
 # ── Preflight checks ──────────────────────────────
-SKIP_NGROK=false
 
 check_command() {
   if ! command -v "$1" &>/dev/null; then
@@ -19,9 +18,17 @@ check_command() {
 }
 
 check_command python3 "Install from https://python.org" || exit 1
-check_command ngrok "Install: brew install ngrok/ngrok/ngrok  OR  https://ngrok.com/download" || {
-  echo -e "${Y}  Continuing without ngrok — local testing only${N}"
-  SKIP_NGROK=true
+check_command ngrok "Run: brew install ngrok/ngrok/ngrok  then: ngrok config add-authtoken <TOKEN>" || {
+  echo ""
+  echo -e "${R}ngrok is required — Blackboard needs a public HTTPS URL to send launches back to.${N}"
+  echo -e "Without it the OIDC redirect will never reach this tool and no launches will appear."
+  echo ""
+  echo -e "  1. Sign up free at ${W}https://ngrok.com${N}"
+  echo -e "  2. ${W}brew install ngrok/ngrok/ngrok${N}"
+  echo -e "  3. ${W}ngrok config add-authtoken <YOUR_TOKEN>${N}"
+  echo -e "  4. Run ${W}./start.sh${N} again"
+  echo ""
+  exit 1
 }
 echo ""
 
@@ -60,41 +67,37 @@ done
 echo ""
 
 # ── Start ngrok ───────────────────────────────────
+echo "🔗 Starting ngrok tunnel..."
+ngrok http 8080 --log stdout > /tmp/bb-lti-ngrok.log 2>&1 &
+NGROK_PID=$!
+
 NGROK_URL=""
-NGROK_PID=""
-if [ "$SKIP_NGROK" = false ]; then
-  echo "🔗 Starting ngrok tunnel..."
-  ngrok http 8080 --log stdout > /tmp/bb-lti-ngrok.log 2>&1 &
-  NGROK_PID=$!
+for i in {1..30}; do
+  NGROK_URL=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); print(next((t['public_url'] for t in d.get('tunnels',[]) if t['proto']=='https'),''))" 2>/dev/null || echo "")
+  [ -n "$NGROK_URL" ] && break
+  sleep 0.5
+done
 
-  # Wait for ngrok API
-  for i in {1..20}; do
-    NGROK_URL=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null \
-      | python3 -c "import sys,json; d=json.load(sys.stdin); print(next((t['public_url'] for t in d.get('tunnels',[]) if t['proto']=='https'),''))" 2>/dev/null || echo "")
-    [ -n "$NGROK_URL" ] && break
-    sleep 0.5
-  done
-
-  if [ -n "$NGROK_URL" ]; then
-    echo -e "${G}✓${N} ngrok tunnel: $NGROK_URL"
-  else
-    echo -e "${Y}⚠ ngrok started but URL not detected. Check http://localhost:4040${N}"
-  fi
+if [ -n "$NGROK_URL" ]; then
+  echo -e "${G}✓${N} ngrok tunnel: $NGROK_URL"
+else
+  echo -e "${R}✗ ngrok started but no HTTPS tunnel detected.${N}"
+  echo -e "  Check ${W}http://localhost:4040${N} and make sure your authtoken is configured."
+  echo -e "  Run: ${W}ngrok config add-authtoken <YOUR_TOKEN>${N}"
+  kill "$SERVER_PID" 2>/dev/null || true
+  kill "$NGROK_PID" 2>/dev/null || true
+  exit 1
 fi
 
 # ── Print registration info ───────────────────────
 echo ""
 echo -e "${W}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"
-if [ -n "$NGROK_URL" ]; then
-  echo -e "${W}Register these in the Blackboard Developer Portal:${N}"
-  echo ""
-  echo -e "  OIDC Login URL  ${G}$NGROK_URL/oidc-login${N}"
-  echo -e "  Redirect URL    ${G}$NGROK_URL/redirect${N}"
-  echo -e "  JWKS URL        ${G}$NGROK_URL/jwks${N}"
-else
-  echo -e "${Y}  ngrok not running — public URLs unavailable${N}"
-  echo -e "  Local only: http://localhost:8080"
-fi
+echo -e "${W}Register these URLs in the Blackboard Developer Portal:${N}"
+echo ""
+echo -e "  OIDC Login URL  ${G}$NGROK_URL/oidc-login${N}"
+echo -e "  Redirect URL    ${G}$NGROK_URL/redirect${N}"
+echo -e "  JWKS URL        ${G}$NGROK_URL/jwks${N}"
 echo -e "${W}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${N}"
 echo ""
 echo -e "  Dashboard: ${W}https://daveyherrera.github.io/blackboard-lti-tester/${N}"
@@ -112,9 +115,7 @@ open "https://daveyherrera.github.io/blackboard-lti-tester/" 2>/dev/null \
 cleanup() {
   echo -e "\n🛑 Shutting down..."
   kill "$SERVER_PID" 2>/dev/null || true
-  if [ "$SKIP_NGROK" = false ] && [ -n "$NGROK_PID" ]; then
-    kill "$NGROK_PID" 2>/dev/null || true
-  fi
+  kill "$NGROK_PID" 2>/dev/null || true
   echo -e "${G}✓${N} All services stopped"
   exit 0
 }
