@@ -82,9 +82,11 @@ done
 if [ -n "$NGROK_URL" ]; then
   echo -e "${G}✓${N} ngrok tunnel: $NGROK_URL"
 else
-  echo -e "${R}✗ ngrok started but no HTTPS tunnel detected.${N}"
-  echo -e "  Check ${W}http://localhost:4040${N} and make sure your authtoken is configured."
-  echo -e "  Run: ${W}ngrok config add-authtoken <YOUR_TOKEN>${N}"
+  echo -e "${R}✗ ngrok tunnel did not start. ngrok output:${N}"
+  echo ""
+  tail -20 /tmp/bb-lti-ngrok.log 2>/dev/null || echo "  (no log output)"
+  echo ""
+  echo -e "  Open ${W}http://localhost:4040${N} for the ngrok dashboard."
   kill "$SERVER_PID" 2>/dev/null || true
   kill "$NGROK_PID" 2>/dev/null || true
   exit 1
