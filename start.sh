@@ -66,9 +66,20 @@ for i in {1..20}; do
 done
 echo ""
 
+# ── Load .env if present ─────────────────────────
+if [ -f ".env" ]; then
+  # shellcheck disable=SC1091
+  set -a; source .env; set +a
+fi
+
 # ── Start ngrok ───────────────────────────────────
 echo "🔗 Starting ngrok tunnel..."
-ngrok http 8080 --log stdout > /tmp/bb-lti-ngrok.log 2>&1 &
+NGROK_CMD="ngrok http 8080 --log stdout"
+if [ -n "${NGROK_DOMAIN:-}" ]; then
+  echo -e "  Using static domain: ${G}$NGROK_DOMAIN${N}"
+  NGROK_CMD="ngrok http 8080 --domain=$NGROK_DOMAIN --log stdout"
+fi
+eval "$NGROK_CMD" > /tmp/bb-lti-ngrok.log 2>&1 &
 NGROK_PID=$!
 
 NGROK_URL=""
