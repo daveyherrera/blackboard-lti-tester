@@ -604,6 +604,142 @@ nav { flex: 1; padding: 10px 8px; }
 .text-sm { font-size: 12px; }
 .font-mono { font-family: monospace; }
 
+/* ── HTTP Exchange display ── */
+.exchange-block {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.15);
+}
+.exchange-block-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  padding: 7px 12px;
+  background: rgba(0,0,0,0.2);
+  border-bottom: 1px solid var(--border);
+}
+.exchange-block-title .ex-count {
+  background: rgba(99,102,241,0.15);
+  color: var(--accent);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+.exchange-item { border-bottom: 1px solid rgba(51,65,85,0.4); }
+.exchange-item:last-child { border-bottom: none; }
+.exchange-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  user-select: none;
+  min-width: 0;
+}
+.exchange-item-header:hover { background: rgba(255,255,255,0.02); }
+.method-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  flex-shrink: 0;
+  letter-spacing: 0.03em;
+}
+.method-tag.GET    { background: rgba(74,222,128,0.12);  color: var(--success); }
+.method-tag.POST   { background: rgba(99,102,241,0.12);  color: var(--accent); }
+.method-tag.DELETE { background: rgba(248,113,113,0.12); color: var(--error); }
+.method-tag.PUT    { background: rgba(251,191,36,0.12);  color: var(--warn); }
+.exchange-url {
+  flex: 1;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.status-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-family: monospace;
+  flex-shrink: 0;
+}
+.status-tag.ok   { background: rgba(74,222,128,0.12);  color: var(--success); }
+.status-tag.err  { background: rgba(248,113,113,0.12); color: var(--error); }
+.status-tag.warn { background: rgba(251,191,36,0.12);  color: var(--warn); }
+.status-tag.dim  { background: rgba(148,163,184,0.1);  color: var(--muted); }
+.exchange-duration { font-size: 11px; color: var(--dim); flex-shrink: 0; }
+.exchange-op-label {
+  font-size: 10px;
+  color: var(--dim);
+  background: rgba(255,255,255,0.04);
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  font-family: monospace;
+}
+.ex-chevron { color: var(--dim); font-size: 12px; transition: transform 0.15s; flex-shrink: 0; }
+.ex-chevron.open { transform: rotate(90deg); }
+.exchange-item-body { display: none; border-top: 1px solid var(--border); }
+.exchange-item-body.open { display: block; }
+.http-panel {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(51,65,85,0.3);
+}
+.http-panel:last-child { border-bottom: none; }
+.http-panel-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--dim);
+  margin-bottom: 7px;
+}
+.headers-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  font-size: 11px;
+  font-family: monospace;
+  margin-bottom: 8px;
+}
+.hk { color: var(--accent); white-space: nowrap; }
+.hv { color: var(--muted); word-break: break-all; }
+.http-body-pre {
+  background: rgba(0,0,0,0.3);
+  border-radius: 6px;
+  padding: 9px 11px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text);
+  overflow-x: auto;
+  max-height: 260px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+  border: 1px solid rgba(51,65,85,0.3);
+}
+.cached-token-note {
+  font-size: 11px;
+  color: var(--warn);
+  padding: 6px 12px;
+  background: rgba(251,191,36,0.05);
+  border-bottom: 1px solid rgba(51,65,85,0.3);
+  font-style: italic;
+}
+
 /* ── Tables ── */
 .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .data-table th {
@@ -676,6 +812,11 @@ nav { flex: 1; padding: 10px 8px; }
     </div>
     <div class="nav-item" data-page="nrps" onclick="navigate('nrps')">
       <span class="nav-icon">👥</span> NRPS (Roster)
+    </div>
+    <div class="nav-label">Testing</div>
+    <div class="nav-item" data-page="httplog" onclick="navigate('httplog')">
+      <span class="nav-icon">⇄</span> HTTP Log
+      <span class="nav-badge" id="nav-exchange-count" style="display:none">0</span>
     </div>
     <div class="nav-label">Tools</div>
     <div class="nav-item" data-page="setup" onclick="navigate('setup')">
@@ -988,6 +1129,7 @@ nav { flex: 1; padding: 10px 8px; }
         <button class="btn btn-primary" onclick="createLineitem()">Create Line Item</button>
       </div>
       <div id="ags-lineitems-table"><div style="color:var(--dim);font-size:13px">Click "Fetch Line Items" to load.</div></div>
+      <div id="ags-lineitems-exchanges"></div>
     </div>
 
     <div class="card" id="ags-score-card">
@@ -1028,6 +1170,7 @@ nav { flex: 1; padding: 10px 8px; }
       </div>
       <button class="btn btn-primary" onclick="submitScore()">Submit Score</button>
       <div id="score-result" style="margin-top:10px"></div>
+      <div id="ags-score-exchanges"></div>
     </div>
 
     <div class="card" id="ags-results-card">
@@ -1039,6 +1182,7 @@ nav { flex: 1; padding: 10px 8px; }
         <input class="form-input" id="results-lineitem-url" placeholder="https://...">
       </div>
       <div id="ags-results-table"><div style="color:var(--dim);font-size:13px">Enter a line item URL and click Fetch Results.</div></div>
+      <div id="ags-results-exchanges"></div>
     </div>
   </div>
 
@@ -1071,7 +1215,38 @@ nav { flex: 1; padding: 10px 8px; }
         <input class="form-input" id="nrps-filter" placeholder="Filter by name, email, or role…" oninput="filterRoster()" style="margin-bottom:10px">
       </div>
       <div id="nrps-table"><div style="color:var(--dim);font-size:13px">Select a launch and click Fetch Roster.</div></div>
+      <div id="nrps-exchanges"></div>
     </div>
+  </div>
+
+  <!-- HTTP Log -->
+  <div class="page" id="page-httplog">
+    <div class="page-header">
+      <div>
+        <div class="page-title">HTTP Log <span class="count-badge" id="httplog-count-badge">0</span></div>
+        <div class="page-sub">Every outbound HTTP call the tool makes — token requests, service calls, OIDC redirects</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="refreshHttpLog()">Refresh</button>
+        <button class="btn btn-danger" onclick="clearHttpLog()">Clear All</button>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="card" style="padding:12px 16px;margin-bottom:12px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <input class="form-input" id="httplog-filter" placeholder="Filter by URL, operation, status…" oninput="renderHttpLogPage()" style="flex:1;min-width:200px;margin:0">
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-ghost btn-sm" id="httplog-filter-all" onclick="setHttpLogFilter('all')" style="font-size:11px">All</button>
+          <button class="btn btn-ghost btn-sm" id="httplog-filter-token" onclick="setHttpLogFilter('token')" style="font-size:11px">Token</button>
+          <button class="btn btn-ghost btn-sm" id="httplog-filter-ags" onclick="setHttpLogFilter('ags')" style="font-size:11px">AGS</button>
+          <button class="btn btn-ghost btn-sm" id="httplog-filter-nrps" onclick="setHttpLogFilter('nrps')" style="font-size:11px">NRPS</button>
+          <button class="btn btn-ghost btn-sm" id="httplog-filter-errors" onclick="setHttpLogFilter('errors')" style="font-size:11px;color:var(--error)">Errors</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="httplog-list"><div class="empty-state"><div class="empty-icon">⇄</div><div class="empty-title">No exchanges yet</div><div class="empty-sub">Run a launch or call an LTI service to see HTTP traffic here</div></div></div>
   </div>
 
 </main>
@@ -1105,6 +1280,7 @@ nav { flex: 1; padding: 10px 8px; }
 
     <button class="btn btn-primary" onclick="sendDeepLinkResponse()" style="width:100%">Send to Blackboard</button>
     <div id="dl-status" style="margin-top:10px"></div>
+    <div id="dl-exchanges"></div>
   </div>
 </div>
 
@@ -1732,6 +1908,265 @@ function roleLabel(uri) {
   return parts[parts.length - 1] || uri;
 }
 
+// ── HTTP Log page ─────────────────────────────────────────────────────────
+
+var httpLogData = [];
+var httpLogFilterType = 'all';
+
+function refreshHttpLog() {
+  fetch(getBackendUrl() + '/api/exchanges')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      httpLogData = data;
+      renderHttpLogPage();
+      var badge = document.getElementById('httplog-count-badge');
+      if (badge) badge.textContent = data.length;
+      var nb = document.getElementById('nav-exchange-count');
+      if (nb) {
+        if (data.length > 0) { nb.textContent = data.length; nb.style.display = ''; }
+        else nb.style.display = 'none';
+      }
+    })
+    .catch(function() {});
+}
+
+function clearHttpLog() {
+  fetch(getBackendUrl() + '/api/exchanges', { method: 'DELETE' })
+    .then(function() {
+      httpLogData = [];
+      renderHttpLogPage();
+      showToast('HTTP log cleared', 'success');
+    });
+}
+
+function setHttpLogFilter(type) {
+  httpLogFilterType = type;
+  // Update button styles
+  ['all', 'token', 'ags', 'nrps', 'errors'].forEach(function(t) {
+    var btn = document.getElementById('httplog-filter-' + t);
+    if (!btn) return;
+    btn.style.background = t === type ? 'rgba(99,102,241,0.2)' : '';
+    btn.style.color = t === type ? 'var(--accent)' : '';
+    btn.style.borderColor = t === type ? 'rgba(99,102,241,0.4)' : '';
+  });
+  renderHttpLogPage();
+}
+
+function renderHttpLogPage() {
+  var container = document.getElementById('httplog-list');
+  if (!container) return;
+
+  var textFilter = ((document.getElementById('httplog-filter') || {}).value || '').toLowerCase();
+
+  var filtered = httpLogData.filter(function(ex) {
+    var op = ex.operation || '';
+    var url = (ex.request && ex.request.url) || '';
+    var status = ex.response && ex.response.status;
+
+    // Type filter
+    if (httpLogFilterType === 'token' && op !== 'token_request') return false;
+    if (httpLogFilterType === 'ags' && op.indexOf('ags') === -1) return false;
+    if (httpLogFilterType === 'nrps' && op.indexOf('nrps') === -1) return false;
+    if (httpLogFilterType === 'errors' && ex.ok) return false;
+
+    // Text filter
+    if (textFilter) {
+      var haystack = (op + ' ' + url + ' ' + (status || '')).toLowerCase();
+      if (haystack.indexOf(textFilter) === -1) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">⇄</div><div class="empty-title">' + (httpLogData.length ? 'No matches' : 'No exchanges yet') + '</div><div class="empty-sub">' + (httpLogData.length ? 'Try a different filter' : 'Run a launch or call an LTI service') + '</div></div>';
+    return;
+  }
+
+  // Group by operation for readability
+  var html = '<div class="exchange-block" style="margin-top:0;border-radius:10px">';
+  html += '<div class="exchange-block-title">Exchanges <span class="ex-count">' + filtered.length + ' of ' + httpLogData.length + '</span></div>';
+  filtered.forEach(function(ex, i) {
+    var uid = 'httplog-ex-' + i + '-' + ex.id;
+    html += buildExchangeItemWithMeta(ex, uid);
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function buildExchangeItemWithMeta(ex, uid) {
+  var req = ex.request || {};
+  var resp = ex.response || {};
+  var method = (req.method || 'GET').toUpperCase();
+  var url = req.url || '';
+  var status = resp.status || 0;
+  var reason = resp.reason || '';
+  var duration = ex.duration_ms ? ex.duration_ms + 'ms' : '';
+  var op = (ex.operation || '').replace(/_/g, ' ');
+  var statusClass = statusTagClass(status);
+  var statusText = status ? String(status) + (reason ? ' ' + reason : '') : 'Error';
+  var tsAgo = ex.timestamp ? timeAgo(ex.timestamp) : '';
+  var launchId = ex.launch_id ? '#' + ex.launch_id : '';
+  var isOpen = _expandedExchanges.has(uid);
+
+  var html = '<div class="exchange-item" id="' + esc(uid) + '">';
+  html += '<div class="exchange-item-header" onclick="toggleExchangeItem(\'' + esc(uid) + '\')">';
+  html += '<span class="method-tag ' + esc(method) + '">' + esc(method) + '</span>';
+  html += '<span class="exchange-url" title="' + esc(url) + '">' + esc(url) + '</span>';
+  if (status) html += '<span class="status-tag ' + statusClass + '">' + esc(statusText) + '</span>';
+  if (duration) html += '<span class="exchange-duration">' + esc(duration) + '</span>';
+  if (op) html += '<span class="exchange-op-label">' + esc(op) + '</span>';
+  if (launchId) html += '<span style="font-size:10px;color:var(--dim);font-family:monospace">' + esc(launchId) + '</span>';
+  if (tsAgo) html += '<span style="font-size:10px;color:var(--dim);flex-shrink:0">' + esc(tsAgo) + '</span>';
+  html += '<span class="ex-chevron' + (isOpen ? ' open' : '') + '">›</span>';
+  html += '</div>';
+
+  // Body (expandable)
+  html += '<div class="exchange-item-body' + (isOpen ? ' open' : '') + '" id="' + esc(uid) + '-body">';
+
+  // Request panel
+  html += '<div class="http-panel">';
+  html += '<div class="http-panel-label">↑ Request — ' + esc(method) + ' ' + esc(url) + '</div>';
+  if (req.headers && Object.keys(req.headers).length) {
+    html += '<div class="headers-grid">';
+    Object.keys(req.headers).forEach(function(k) {
+      html += '<span class="hk">' + esc(k) + ':</span><span class="hv">' + esc(String(req.headers[k])) + '</span>';
+    });
+    html += '</div>';
+  }
+  if (req.body !== null && req.body !== undefined) {
+    var bodyStr = typeof req.body === 'object' ? JSON.stringify(req.body, null, 2) : String(req.body);
+    html += '<pre class="http-body-pre">' + esc(bodyStr) + '</pre>';
+  }
+  html += '</div>';
+
+  // Response panel
+  html += '<div class="http-panel">';
+  html += '<div class="http-panel-label">↓ Response — ' + (status ? esc(statusText) : 'No response') + (duration ? ' (' + esc(duration) + ')' : '') + '</div>';
+  if (resp.headers && Object.keys(resp.headers).length) {
+    html += '<div class="headers-grid">';
+    Object.keys(resp.headers).forEach(function(k) {
+      html += '<span class="hk">' + esc(k) + ':</span><span class="hv">' + esc(String(resp.headers[k])) + '</span>';
+    });
+    html += '</div>';
+  }
+  if (resp.body !== null && resp.body !== undefined) {
+    var respStr = typeof resp.body === 'object' ? JSON.stringify(resp.body, null, 2) : String(resp.body);
+    html += '<pre class="http-body-pre">' + esc(respStr) + '</pre>';
+  }
+  if (ex.error) html += '<div style="color:var(--error);font-size:12px;margin-top:6px">Error: ' + esc(ex.error) + '</div>';
+  html += '</div>';
+
+  html += '</div></div>';
+  return html;
+}
+
+// ── Exchange rendering ────────────────────────────────────────────────────
+
+var _expandedExchanges = new Set();
+
+function statusTagClass(status) {
+  if (!status || status === 0) return 'dim';
+  if (status >= 200 && status < 300) return 'ok';
+  if (status >= 400) return 'err';
+  return 'warn';
+}
+
+function renderExchangeBlock(exchangeList, containerId) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  if (!exchangeList || !exchangeList.length) {
+    container.innerHTML = '';
+    return;
+  }
+  var html = '<div class="exchange-block">';
+  html += '<div class="exchange-block-title">HTTP Exchanges <span class="ex-count">' + exchangeList.length + ' call' + (exchangeList.length !== 1 ? 's' : '') + '</span></div>';
+  exchangeList.forEach(function(ex, i) {
+    var uid = containerId + '-ex-' + i;
+    html += buildExchangeItem(ex, uid);
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function buildExchangeItem(ex, uid) {
+  var req = ex.request || {};
+  var resp = ex.response || {};
+  var method = (req.method || 'GET').toUpperCase();
+  var url = req.url || '';
+  var status = resp.status || 0;
+  var reason = resp.reason || '';
+  var duration = ex.duration_ms ? ex.duration_ms + 'ms' : '';
+  var op = (ex.operation || '').replace(/_/g, ' ');
+  var statusClass = statusTagClass(status);
+  var statusText = status ? status + (reason ? ' ' + reason : '') : 'Error';
+  var isOpen = _expandedExchanges.has(uid);
+
+  var html = '<div class="exchange-item" id="' + esc(uid) + '">';
+  html += '<div class="exchange-item-header" onclick="toggleExchangeItem(\'' + esc(uid) + '\')">';
+  html += '<span class="method-tag ' + esc(method) + '">' + esc(method) + '</span>';
+  html += '<span class="exchange-url" title="' + esc(url) + '">' + esc(url) + '</span>';
+  if (status) html += '<span class="status-tag ' + statusClass + '">' + esc(statusText) + '</span>';
+  if (duration) html += '<span class="exchange-duration">' + esc(duration) + '</span>';
+  if (op) html += '<span class="exchange-op-label">' + esc(op) + '</span>';
+  html += '<span class="ex-chevron' + (isOpen ? ' open' : '') + '">›</span>';
+  html += '</div>';
+
+  html += '<div class="exchange-item-body' + (isOpen ? ' open' : '') + '" id="' + esc(uid) + '-body">';
+
+  // Request panel
+  html += '<div class="http-panel">';
+  html += '<div class="http-panel-label">↑ Request</div>';
+  if (req.headers && Object.keys(req.headers).length) {
+    html += '<div class="headers-grid">';
+    Object.keys(req.headers).forEach(function(k) {
+      html += '<span class="hk">' + esc(k) + ':</span><span class="hv">' + esc(String(req.headers[k])) + '</span>';
+    });
+    html += '</div>';
+  }
+  if (req.body !== null && req.body !== undefined) {
+    var bodyStr = typeof req.body === 'object' ? JSON.stringify(req.body, null, 2) : String(req.body);
+    html += '<pre class="http-body-pre">' + esc(bodyStr) + '</pre>';
+  }
+  html += '</div>';
+
+  // Response panel
+  html += '<div class="http-panel">';
+  html += '<div class="http-panel-label">↓ Response' + (status ? ' <span style="color:var(--' + (statusClass === 'ok' ? 'success' : statusClass === 'err' ? 'error' : 'warn') + ')">' + status + '</span>' : '') + '</div>';
+  if (resp.headers && Object.keys(resp.headers).length) {
+    html += '<div class="headers-grid">';
+    Object.keys(resp.headers).forEach(function(k) {
+      html += '<span class="hk">' + esc(k) + ':</span><span class="hv">' + esc(String(resp.headers[k])) + '</span>';
+    });
+    html += '</div>';
+  }
+  if (resp.body !== null && resp.body !== undefined) {
+    var respStr = typeof resp.body === 'object' ? JSON.stringify(resp.body, null, 2) : String(resp.body);
+    html += '<pre class="http-body-pre">' + esc(respStr) + '</pre>';
+  }
+  if (ex.error) {
+    html += '<div style="color:var(--error);font-size:12px;margin-top:6px">Error: ' + esc(ex.error) + '</div>';
+  }
+  html += '</div>';
+
+  html += '</div>'; // exchange-item-body
+  html += '</div>'; // exchange-item
+  return html;
+}
+
+function toggleExchangeItem(uid) {
+  var body = document.getElementById(uid + '-body');
+  var header = document.getElementById(uid);
+  if (!body) return;
+  var isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  if (header) {
+    var chevron = header.querySelector('.ex-chevron');
+    if (chevron) chevron.classList.toggle('open', !isOpen);
+  }
+  if (!isOpen) _expandedExchanges.add(uid);
+  else _expandedExchanges.delete(uid);
+}
+
 // ── AGS ────────────────────────────────────────────────────────────────────
 
 var agsCurrentLaunchId = '';
@@ -1801,7 +2236,9 @@ async function fetchLineitems() {
   var launchId = document.getElementById('ags-launch-select').value;
   if (!launchId) { showToast('Select a launch first', 'error'); return; }
   var el = document.getElementById('ags-lineitems-table');
+  var exEl = document.getElementById('ags-lineitems-exchanges');
   el.innerHTML = '<div style="color:var(--dim)">Loading…</div>';
+  if (exEl) exEl.innerHTML = '';
   try {
     var r = await fetch(getBackendUrl() + '/api/ags/lineitems', {
       method: 'POST',
@@ -1809,6 +2246,7 @@ async function fetchLineitems() {
       body: JSON.stringify({ launch_id: launchId }),
     });
     var data = await r.json();
+    if (exEl) renderExchangeBlock(data.exchanges || [], 'ags-lineitems-exchanges');
     if (!r.ok) { el.innerHTML = '<div style="color:var(--error)">' + esc(data.detail || JSON.stringify(data)) + '</div>'; return; }
     var items = Array.isArray(data.lineitems) ? data.lineitems : [];
     if (!items.length) { el.innerHTML = '<div style="color:var(--dim)">No line items found.</div>'; return; }
@@ -1865,6 +2303,7 @@ async function createLineitem() {
       body: JSON.stringify(body),
     });
     var data = await r.json();
+    renderExchangeBlock(data.exchanges || [], 'ags-lineitems-exchanges');
     if (!r.ok) { showToast('Error: ' + (data.detail || r.status), 'error'); return; }
     showToast('Line item created', 'success');
     fetchLineitems();
@@ -1884,7 +2323,9 @@ async function submitScore() {
   };
   if (!body.lineitem_url) { showToast('Line Item URL required', 'error'); return; }
   var el = document.getElementById('score-result');
+  var exEl = document.getElementById('ags-score-exchanges');
   el.innerHTML = '<span style="color:var(--muted)">Submitting…</span>';
+  if (exEl) exEl.innerHTML = '';
   try {
     var r = await fetch(getBackendUrl() + '/api/ags/scores', {
       method: 'POST',
@@ -1892,8 +2333,9 @@ async function submitScore() {
       body: JSON.stringify(body),
     });
     var data = await r.json();
+    if (exEl) renderExchangeBlock(data.exchanges || [], 'ags-score-exchanges');
     if (!r.ok) { el.innerHTML = '<span style="color:var(--error)">' + esc(data.detail || JSON.stringify(data)) + '</span>'; return; }
-    el.innerHTML = '<span style="color:var(--success)">✓ Score submitted (HTTP ' + data.status + ')</span>';
+    el.innerHTML = '<span style="color:var(--success)">✓ Score submitted — HTTP ' + data.status + '</span>';
     showToast('Score submitted', 'success');
   } catch(e) { el.innerHTML = '<span style="color:var(--error)">' + esc(e.message) + '</span>'; }
 }
@@ -1902,7 +2344,9 @@ async function fetchResults() {
   var url = document.getElementById('results-lineitem-url').value.trim();
   if (!url) { showToast('Line Item URL required', 'error'); return; }
   var el = document.getElementById('ags-results-table');
+  var exEl = document.getElementById('ags-results-exchanges');
   el.innerHTML = '<div style="color:var(--dim)">Loading…</div>';
+  if (exEl) exEl.innerHTML = '';
   try {
     var r = await fetch(getBackendUrl() + '/api/ags/results', {
       method: 'POST',
@@ -1910,6 +2354,7 @@ async function fetchResults() {
       body: JSON.stringify({ launch_id: document.getElementById('ags-launch-select').value, lineitem_url: url }),
     });
     var data = await r.json();
+    if (exEl) renderExchangeBlock(data.exchanges || [], 'ags-results-exchanges');
     if (!r.ok) { el.innerHTML = '<div style="color:var(--error)">' + esc(data.detail || JSON.stringify(data)) + '</div>'; return; }
     var results = Array.isArray(data.results) ? data.results : [];
     if (!results.length) { el.innerHTML = '<div style="color:var(--dim)">No results yet.</div>'; return; }
@@ -1928,7 +2373,9 @@ async function fetchRoster() {
   var launchId = document.getElementById('nrps-launch-select').value;
   if (!launchId) { showToast('Select a launch first', 'error'); return; }
   var el = document.getElementById('nrps-table');
+  var exEl = document.getElementById('nrps-exchanges');
   el.innerHTML = '<div style="color:var(--dim)">Loading roster…</div>';
+  if (exEl) exEl.innerHTML = '';
   try {
     var r = await fetch(getBackendUrl() + '/api/nrps/memberships', {
       method: 'POST',
@@ -1936,6 +2383,7 @@ async function fetchRoster() {
       body: JSON.stringify({ launch_id: launchId }),
     });
     var data = await r.json();
+    if (exEl) renderExchangeBlock(data.exchanges || [], 'nrps-exchanges');
     if (!r.ok) { el.innerHTML = '<div style="color:var(--error)">' + esc(data.detail || JSON.stringify(data)) + '</div>'; return; }
     nrpsRosterData = data.members || [];
     var badge = document.getElementById('nrps-count-badge');
@@ -2124,8 +2572,10 @@ function removeDlItem(idx) { dlItems.splice(idx, 1); renderDlItems(); }
 async function sendDeepLinkResponse() {
   if (!dlCurrentLaunchId) { showToast('No launch selected', 'error'); return; }
   if (!dlItems.length) { showToast('Add at least one content item', 'error'); return; }
-  var status = document.getElementById('dl-status');
-  status.innerHTML = '<span style="color:var(--muted)">Sending…</span>';
+  var statusEl = document.getElementById('dl-status');
+  var exEl = document.getElementById('dl-exchanges');
+  statusEl.innerHTML = '<span style="color:var(--muted)">Sending…</span>';
+  if (exEl) exEl.innerHTML = '';
   try {
     var r = await fetch(getBackendUrl() + '/api/deep-link/response', {
       method: 'POST',
@@ -2133,11 +2583,12 @@ async function sendDeepLinkResponse() {
       body: JSON.stringify({ launch_id: dlCurrentLaunchId, content_items: dlItems }),
     });
     var data = await r.json();
-    if (!r.ok) { status.innerHTML = '<span style="color:var(--error)">' + esc(data.detail || JSON.stringify(data)) + '</span>'; return; }
-    status.innerHTML = '<span style="color:var(--success)">✓ Submitting to Blackboard in new tab…</span>';
+    if (exEl) renderExchangeBlock(data.exchanges || [], 'dl-exchanges');
+    if (!r.ok) { statusEl.innerHTML = '<span style="color:var(--error)">' + esc(data.detail || JSON.stringify(data)) + '</span>'; return; }
+    statusEl.innerHTML = '<span style="color:var(--success)">✓ JWT signed and posted to Blackboard in new tab</span>';
     buildAutoSubmitForm(data.jwt, data.deep_link_return_url);
     showToast('Deep link response sent', 'success');
-  } catch(e) { status.innerHTML = '<span style="color:var(--error)">' + esc(e.message) + '</span>'; }
+  } catch(e) { statusEl.innerHTML = '<span style="color:var(--error)">' + esc(e.message) + '</span>'; }
 }
 
 function buildAutoSubmitForm(jwtToken, returnUrl) {
@@ -2164,6 +2615,9 @@ navigate = function(page) {
     populateAgsSelect();
   } else if (page === 'nrps') {
     populateNrpsSelect();
+  } else if (page === 'httplog') {
+    setHttpLogFilter('all');
+    refreshHttpLog();
   }
 };
 

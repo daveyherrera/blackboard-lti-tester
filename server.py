@@ -22,8 +22,9 @@ import base64
 KEYS_DIR = Path("keys")
 SETTINGS_FILE = Path("settings.json")
 MAX_LAUNCHES = 100
-STATE_TTL = 300  # 5 minutes
-JWKS_CACHE_TTL = 3600  # 1 hour
+MAX_EXCHANGES = 300
+STATE_TTL = 300       # 5 minutes
+JWKS_CACHE_TTL = 3600 # 1 hour
 GITHUB_PAGES_URL = "https://daveyherrera.github.io/blackboard-lti-tester"
 
 DEFAULT_CONFIG = {
@@ -39,9 +40,149 @@ DEFAULT_CONFIG = {
 
 pending_states: dict[str, dict] = {}
 launches: list[dict] = []
+exchanges: list[dict] = []  # HTTP exchange log, newest first
 jwks_cache: dict = {"keys": None, "fetched_at": 0}
 _token_cache: dict = {}  # scope_key -> {access_token, expires_at}
 config: dict = {}
+
+# ── Redaction helpers ─────────────────────────────────────────────────────────
+
+_REDACT_FIELDS = {"client_assertion", "access_token", "id_token", "refresh_token"}
+_MAX_BODY_DISPLAY = 30_000  # chars
+
+
+def _redact_str(s: str, field_name: str = "") -> str:
+    if len(s) > 40:
+        return s[:28] + f"…[{len(s)} chars]"
+    return s
+
+
+def redact_req_headers(headers: dict) -> dict:
+    out = {}
+    for k, v in headers.items():
+        if k.lower() == "authorization" and len(v) > 30:
+            out[k] = v[:22] + "…[truncated]"
+        else:
+            out[k] = v
+    return out
+
+
+def redact_body(body, *, is_response: bool = False) -> object:
+    if isinstance(body, dict):
+        out = {}
+        for k, v in body.items():
+            if k in _REDACT_FIELDS and isinstance(v, str):
+                out[k] = _redact_str(v, k)
+            else:
+                out[k] = v
+        return out
+    if isinstance(body, str) and len(body) > _MAX_BODY_DISPLAY:
+        return body[:_MAX_BODY_DISPLAY] + f"…[truncated, {len(body)} total chars]"
+    return body
+
+
+def _interesting_resp_headers(headers: dict) -> dict:
+    keep = {"content-type", "www-authenticate", "x-request-id", "link", "retry-after", "x-bb-error"}
+    return {k: v for k, v in headers.items() if k.lower() in keep}
+
+# ── HTTP Exchange logger ──────────────────────────────────────────────────────
+
+async def logged_request(
+    method: str,
+    url: str,
+    *,
+    headers: dict | None = None,
+    json_body: object = None,
+    form_data: dict | None = None,
+    operation: str = "",
+    launch_id: str | None = None,
+    timeout: float = 20.0,
+) -> tuple[httpx.Response, str]:
+    """
+    Make an HTTP request and record the full exchange in memory.
+    Returns (response, exchange_id).
+    """
+    exchange_id = str(uuid.uuid4())[:8]
+
+    display_req_headers = redact_req_headers(headers or {})
+    if form_data is not None:
+        display_body = redact_body(form_data)
+    elif json_body is not None:
+        display_body = redact_body(json_body)
+    else:
+        display_body = None
+
+    exchange: dict = {
+        "id": exchange_id,
+        "timestamp": time.time(),
+        "operation": operation,
+        "launch_id": launch_id,
+        "request": {
+            "method": method.upper(),
+            "url": url,
+            "headers": display_req_headers,
+            "body": display_body,
+        },
+        "response": None,
+        "ok": False,
+        "duration_ms": 0,
+        "error": None,
+    }
+
+    start = time.monotonic()
+    try:
+        req_kwargs: dict = {"headers": headers or {}}
+        if json_body is not None:
+            req_kwargs["json"] = json_body
+        elif form_data is not None:
+            req_kwargs["data"] = form_data
+
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            r: httpx.Response = await getattr(client, method.lower())(url, **req_kwargs)
+
+        duration_ms = round((time.monotonic() - start) * 1000, 1)
+
+        try:
+            resp_body = r.json()
+        except Exception:
+            resp_body = r.text
+
+        exchange["response"] = {
+            "status": r.status_code,
+            "reason": r.reason_phrase,
+            "headers": _interesting_resp_headers(dict(r.headers)),
+            "all_headers": dict(r.headers),
+            "body": redact_body(resp_body, is_response=True),
+        }
+        exchange["ok"] = r.is_success
+        exchange["duration_ms"] = duration_ms
+
+    except Exception as e:
+        duration_ms = round((time.monotonic() - start) * 1000, 1)
+        exchange["response"] = {
+            "status": 0,
+            "reason": "Connection Error",
+            "headers": {},
+            "all_headers": {},
+            "body": str(e),
+        }
+        exchange["ok"] = False
+        exchange["duration_ms"] = duration_ms
+        exchange["error"] = str(e)
+        exchanges.insert(0, exchange)
+        if len(exchanges) > MAX_EXCHANGES:
+            exchanges.pop()
+        raise
+
+    exchanges.insert(0, exchange)
+    if len(exchanges) > MAX_EXCHANGES:
+        exchanges.pop()
+    return r, exchange_id
+
+
+def get_exchanges_by_ids(ids: list[str]) -> list[dict]:
+    id_to_ex = {ex["id"]: ex for ex in exchanges}
+    return [id_to_ex[i] for i in ids if i in id_to_ex]
 
 # ── Startup helpers ───────────────────────────────────────────────────────────
 
@@ -53,8 +194,10 @@ def load_config() -> dict:
             pass
     return dict(DEFAULT_CONFIG)
 
+
 def save_config(data: dict):
     SETTINGS_FILE.write_text(json.dumps(data, indent=2))
+
 
 def ensure_keys() -> tuple[bytes, bytes]:
     """Generate RSA-2048 key pair if not present. Returns (private_pem, public_pem)."""
@@ -82,8 +225,8 @@ def ensure_keys() -> tuple[bytes, bytes]:
         )
     return priv_file.read_bytes(), pub_file.read_bytes()
 
+
 def public_key_to_jwks(pub_pem: bytes) -> dict:
-    """Convert RSA public key PEM to JWKS format."""
     from cryptography.hazmat.primitives.serialization import load_pem_public_key
     key = load_pem_public_key(pub_pem, backend=default_backend())
     numbers = key.public_numbers()
@@ -122,7 +265,6 @@ async def get_ngrok_url() -> Optional[str]:
 # ── JWKS fetch ───────────────────────────────────────────────────────────────
 
 async def fetch_jwks(force: bool = False) -> Optional[list]:
-    """Fetch and cache Blackboard's JWKS. Returns list of keys or None on error."""
     now = time.time()
     if (
         not force
@@ -142,18 +284,28 @@ async def fetch_jwks(force: bool = False) -> Optional[list]:
             jwks_cache["fetched_at"] = now
             return keys
     except Exception:
-        return jwks_cache.get("keys")  # return stale on error
+        return jwks_cache.get("keys")
 
 # ── LTI Service token ─────────────────────────────────────────────────────────
 
-async def get_lti_service_token(scopes: list) -> str:
+async def get_service_token(
+    scopes: list[str],
+    launch_id: str | None = None,
+) -> tuple[str, str | None]:
+    """
+    Get OAuth2 service token via JWT client assertion.
+    Returns (access_token, exchange_id_or_None_if_cached).
+    """
     scope_str = " ".join(sorted(scopes))
     cached = _token_cache.get(scope_str)
     if cached and time.time() < cached["expires_at"] - 30:
-        return cached["access_token"]
+        return cached["access_token"], None  # served from cache
 
     client_id = config.get("client_id", "")
-    token_url = config.get("token_url", "https://developer.blackboard.com/api/v1/gateway/oauth2/jwttoken")
+    token_url = config.get(
+        "token_url",
+        "https://developer.blackboard.com/api/v1/gateway/oauth2/jwttoken",
+    )
     now = int(time.time())
 
     assertion_claims = {
@@ -165,22 +317,32 @@ async def get_lti_service_token(scopes: list) -> str:
         "jti": secrets.token_urlsafe(16),
     }
     priv_pem = (KEYS_DIR / "private.pem").read_text()
-    assertion = jwt.encode(assertion_claims, priv_pem, algorithm="RS256", headers={"kid": "lti-tester-key-1"})
+    assertion = jwt.encode(
+        assertion_claims, priv_pem, algorithm="RS256",
+        headers={"kid": "lti-tester-key-1"},
+    )
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        r = await client.post(token_url, data={
+    r, ex_id = await logged_request(
+        "POST",
+        token_url,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        form_data={
             "grant_type": "client_credentials",
             "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
             "client_assertion": assertion,
             "scope": scope_str,
-        }, headers={"Content-Type": "application/x-www-form-urlencoded"})
-        r.raise_for_status()
-        data = r.json()
-        _token_cache[scope_str] = {
-            "access_token": data["access_token"],
-            "expires_at": time.time() + data.get("expires_in", 3600),
-        }
-        return data["access_token"]
+        },
+        operation="token_request",
+        launch_id=launch_id,
+        timeout=20.0,
+    )
+    r.raise_for_status()
+    data = r.json()
+    _token_cache[scope_str] = {
+        "access_token": data["access_token"],
+        "expires_at": time.time() + data.get("expires_in", 3600),
+    }
+    return data["access_token"], ex_id
 
 
 def get_launch_or_404(launch_id: str) -> dict:
@@ -189,17 +351,11 @@ def get_launch_or_404(launch_id: str) -> dict:
         raise HTTPException(status_code=404, detail="Launch not found")
     return launch
 
-
 # ── JWT validation ───────────────────────────────────────────────────────────
 
 async def validate_lti_jwt(
     token: str, expected_nonce: str
 ) -> tuple[bool, dict, str]:
-    """
-    Validate an LTI 1.3 id_token.
-    Returns (is_valid, payload_dict, error_message).
-    """
-    # 1. Decode header without verification to get kid
     try:
         header = jwt.get_unverified_header(token)
     except JWTError as e:
@@ -210,26 +366,20 @@ async def validate_lti_jwt(
     if alg not in ("RS256", "RS512"):
         return False, {}, f"Unsupported algorithm: {alg}"
 
-    # 2. Fetch JWKS and find matching key
     keys = await fetch_jwks()
     if not keys:
         return (
-            False,
-            {},
+            False, {},
             "Cannot fetch Blackboard's JWKS — check JWKS URL in Settings",
         )
 
     signing_key = next((k for k in keys if k.get("kid") == kid), None)
     if not signing_key:
-        # Try refetching (key may have rotated)
         keys = await fetch_jwks(force=True)
-        signing_key = next(
-            (k for k in (keys or []) if k.get("kid") == kid), None
-        )
+        signing_key = next((k for k in (keys or []) if k.get("kid") == kid), None)
     if not signing_key:
         return False, {}, f"No JWKS key found for kid={kid!r}"
 
-    # 3. Verify signature and standard claims
     client_id = config.get("client_id", "")
     issuer = config.get("issuer", "https://blackboard.com")
     try:
@@ -249,14 +399,10 @@ async def validate_lti_jwt(
             payload = {}
         return False, payload, f"JWT verification failed: {e}"
 
-    # 4. Validate nonce
     if payload.get("nonce") != expected_nonce:
         return False, payload, "Nonce mismatch — possible replay attack"
 
-    # 5. Validate LTI version
-    lti_version = payload.get(
-        "https://purl.imsglobal.org/spec/lti/claim/version"
-    )
+    lti_version = payload.get("https://purl.imsglobal.org/spec/lti/claim/version")
     if lti_version and lti_version != "1.3.0":
         return False, payload, f"Unexpected LTI version: {lti_version}"
 
@@ -269,8 +415,7 @@ async def cleanup_expired_states():
         await asyncio.sleep(60)
         now = time.time()
         expired = [
-            s
-            for s, d in pending_states.items()
+            s for s, d in pending_states.items()
             if now - d["initiated_at"] > STATE_TTL
         ]
         for s in expired:
@@ -340,19 +485,50 @@ async def oidc_login(request: Request):
 
     from urllib.parse import urlencode
 
-    params = urlencode(
-        {
-            "response_type": "id_token",
-            "scope": "openid",
-            "login_hint": login_hint,
-            "lti_message_hint": lti_message_hint,
-            "state": state,
-            "redirect_uri": redirect_uri,
-            "client_id": client_id,
-            "nonce": nonce,
-            "response_mode": "form_post",
-        }
-    )
+    auth_params = {
+        "response_type": "id_token",
+        "scope": "openid",
+        "login_hint": login_hint,
+        "lti_message_hint": lti_message_hint,
+        "state": state,
+        "redirect_uri": redirect_uri,
+        "client_id": client_id,
+        "nonce": nonce,
+        "response_mode": "form_post",
+    }
+    params = urlencode(auth_params)
+
+    # Log what we're sending to Blackboard's OIDC endpoint
+    oidc_exchange_id = str(uuid.uuid4())[:8]
+    oidc_exchange: dict = {
+        "id": oidc_exchange_id,
+        "timestamp": time.time(),
+        "operation": "oidc_redirect",
+        "launch_id": None,
+        "request": {
+            "method": "GET",
+            "url": f"{oidc_auth_url}?{params}",
+            "headers": {},
+            "body": {
+                "note": "Browser redirect — not a direct HTTP call",
+                "params": auth_params,
+            },
+        },
+        "response": {
+            "status": 302,
+            "reason": "Redirect to Blackboard OIDC",
+            "headers": {},
+            "all_headers": {},
+            "body": f"Browser redirected to {oidc_auth_url}",
+        },
+        "ok": True,
+        "duration_ms": 0,
+        "error": None,
+    }
+    exchanges.insert(0, oidc_exchange)
+    if len(exchanges) > MAX_EXCHANGES:
+        exchanges.pop()
+
     return RedirectResponse(url=f"{oidc_auth_url}?{params}", status_code=302)
 
 
@@ -378,6 +554,11 @@ async def lti_redirect(
             "payload": {},
             "raw_token": "[redacted]",
             "state": state,
+            "oidc_flow": {
+                "step1_received": None,
+                "step2_redirect_sent": None,
+                "step3_token_received": received_at,
+            },
         }
         launches.insert(0, launch)
         if len(launches) > MAX_LAUNCHES:
@@ -394,6 +575,43 @@ async def lti_redirect(
 
     is_valid, payload, error = await validate_lti_jwt(id_token, state_data["nonce"])
 
+    # Capture what Blackboard sent us
+    bb_token_exchange_id = str(uuid.uuid4())[:8]
+    bb_exchange: dict = {
+        "id": bb_token_exchange_id,
+        "timestamp": received_at,
+        "operation": "id_token_received",
+        "launch_id": launch_id,
+        "request": {
+            "method": "POST",
+            "url": "/redirect (Blackboard → Tool)",
+            "headers": {"Content-Type": "application/x-www-form-urlencoded"},
+            "body": {
+                "state": state,
+                "id_token": _redact_str(id_token),
+            },
+        },
+        "response": {
+            "status": 200 if is_valid else 400,
+            "reason": "JWT Valid" if is_valid else f"JWT Invalid: {error}",
+            "headers": {},
+            "all_headers": {},
+            "body": {
+                "jwt_header": header,
+                "jwt_payload_preview": {
+                    k: v for k, v in list((payload or {}).items())[:8]
+                },
+                "validation_result": "VALID" if is_valid else f"FAILED: {error}",
+            },
+        },
+        "ok": is_valid,
+        "duration_ms": 0,
+        "error": None if is_valid else error,
+    }
+    exchanges.insert(0, bb_exchange)
+    if len(exchanges) > MAX_EXCHANGES:
+        exchanges.pop()
+
     launch = {
         "id": launch_id,
         "received_at": received_at,
@@ -403,6 +621,7 @@ async def lti_redirect(
         "payload": payload,
         "raw_token": id_token if not is_valid else "[stored — fetch by ID]",
         "state_data": {k: v for k, v in state_data.items() if k != "nonce"},
+        "exchange_ids": [bb_token_exchange_id],
     }
     launches.insert(0, launch)
     if len(launches) > MAX_LAUNCHES:
@@ -435,6 +654,7 @@ async def api_status():
         "config_complete": config_complete,
         "pending_states": len(pending_states),
         "launch_count": len(launches),
+        "exchange_count": len(exchanges),
         "registration_urls": {
             "oidc_login": f"{ngrok_url}/oidc-login" if ngrok_url else None,
             "redirect": f"{ngrok_url}/redirect" if ngrok_url else None,
@@ -490,6 +710,27 @@ async def health():
     return {"status": "ok", "timestamp": time.time()}
 
 
+# ── HTTP Exchange log ─────────────────────────────────────────────────────────
+
+@app.get("/api/exchanges")
+async def api_exchanges():
+    return exchanges
+
+
+@app.get("/api/exchanges/{exchange_id}")
+async def api_exchange_detail(exchange_id: str):
+    ex = next((e for e in exchanges if e["id"] == exchange_id), None)
+    if not ex:
+        raise HTTPException(status_code=404, detail="Exchange not found")
+    return ex
+
+
+@app.delete("/api/exchanges")
+async def api_clear_exchanges():
+    exchanges.clear()
+    return {"ok": True}
+
+
 # ── LTI Advantage endpoints ───────────────────────────────────────────────────
 
 @app.post("/api/ags/lineitems")
@@ -502,18 +743,34 @@ async def api_ags_lineitems(request: Request):
     lineitems_url = body.get("lineitem_url") or ags_claim.get("lineitems")
     if not lineitems_url:
         raise HTTPException(status_code=400, detail="No lineitems URL available in launch payload")
+
     try:
-        token = await get_lti_service_token(["https://purl.imsglobal.org/spec/lti-ags/scope/lineitem.readonly"])
+        token, token_ex_id = await get_service_token(
+            ["https://purl.imsglobal.org/spec/lti-ags/scope/lineitem.readonly"],
+            launch_id=launch_id,
+        )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Token fetch failed: {e}")
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        r = await client.get(lineitems_url, headers={
+
+    r, service_ex_id = await logged_request(
+        "GET",
+        lineitems_url,
+        headers={
             "Authorization": f"Bearer {token}",
             "Accept": "application/vnd.ims.lis.v2.lineitemcontainer+json",
-        })
-        if not r.is_success:
-            raise HTTPException(status_code=r.status_code, detail=r.text)
-        return {"lineitems": r.json(), "launch_id": launch_id}
+        },
+        operation="ags_list_lineitems",
+        launch_id=launch_id,
+    )
+    if not r.is_success:
+        raise HTTPException(status_code=r.status_code, detail=r.text)
+
+    ex_ids = [i for i in [token_ex_id, service_ex_id] if i]
+    return {
+        "lineitems": r.json(),
+        "launch_id": launch_id,
+        "exchanges": get_exchanges_by_ids(ex_ids),
+    }
 
 
 @app.post("/api/ags/create-lineitem")
@@ -526,11 +783,16 @@ async def api_ags_create_lineitem(request: Request):
     lineitems_url = ags_claim.get("lineitems")
     if not lineitems_url:
         raise HTTPException(status_code=400, detail="No lineitems URL in launch payload")
+
     try:
-        token = await get_lti_service_token(["https://purl.imsglobal.org/spec/lti-ags/scope/lineitem"])
+        token, token_ex_id = await get_service_token(
+            ["https://purl.imsglobal.org/spec/lti-ags/scope/lineitem"],
+            launch_id=launch_id,
+        )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Token fetch failed: {e}")
-    lineitem_body = {
+
+    lineitem_body: dict = {
         "label": body.get("label", "Untitled"),
         "scoreMaximum": body.get("scoreMaximum", 100),
     }
@@ -538,14 +800,23 @@ async def api_ags_create_lineitem(request: Request):
         lineitem_body["resourceId"] = body["resourceId"]
     if body.get("tag"):
         lineitem_body["tag"] = body["tag"]
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        r = await client.post(lineitems_url, json=lineitem_body, headers={
+
+    r, service_ex_id = await logged_request(
+        "POST",
+        lineitems_url,
+        headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/vnd.ims.lis.v2.lineitem+json",
-        })
-        if not r.is_success:
-            raise HTTPException(status_code=r.status_code, detail=r.text)
-        return r.json()
+        },
+        json_body=lineitem_body,
+        operation="ags_create_lineitem",
+        launch_id=launch_id,
+    )
+    if not r.is_success:
+        raise HTTPException(status_code=r.status_code, detail=r.text)
+
+    ex_ids = [i for i in [token_ex_id, service_ex_id] if i]
+    return {**r.json(), "exchanges": get_exchanges_by_ids(ex_ids)}
 
 
 @app.post("/api/ags/scores")
@@ -554,10 +825,16 @@ async def api_ags_scores(request: Request):
     lineitem_url = body.get("lineitem_url", "")
     if not lineitem_url:
         raise HTTPException(status_code=400, detail="lineitem_url required")
+    launch_id = body.get("launch_id", "")
+
     try:
-        token = await get_lti_service_token(["https://purl.imsglobal.org/spec/lti-ags/scope/score"])
+        token, token_ex_id = await get_service_token(
+            ["https://purl.imsglobal.org/spec/lti-ags/scope/score"],
+            launch_id=launch_id or None,
+        )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Token fetch failed: {e}")
+
     score_payload = {
         "userId": body.get("userId", ""),
         "scoreGiven": body.get("scoreGiven", 0),
@@ -568,15 +845,29 @@ async def api_ags_scores(request: Request):
     }
     if body.get("comment"):
         score_payload["comment"] = body["comment"]
+
     scores_url = lineitem_url.rstrip("/") + "/scores"
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        r = await client.post(scores_url, json=score_payload, headers={
+    r, service_ex_id = await logged_request(
+        "POST",
+        scores_url,
+        headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/vnd.ims.lis.v1.score+json",
-        })
-        if not r.is_success:
-            raise HTTPException(status_code=r.status_code, detail=r.text)
-        return {"ok": True, "status": r.status_code}
+        },
+        json_body=score_payload,
+        operation="ags_submit_score",
+        launch_id=launch_id or None,
+    )
+    if not r.is_success:
+        raise HTTPException(status_code=r.status_code, detail=r.text)
+
+    ex_ids = [i for i in [token_ex_id, service_ex_id] if i]
+    return {
+        "ok": True,
+        "status": r.status_code,
+        "score_sent": score_payload,
+        "exchanges": get_exchanges_by_ids(ex_ids),
+    }
 
 
 @app.post("/api/ags/results")
@@ -585,19 +876,35 @@ async def api_ags_results(request: Request):
     lineitem_url = body.get("lineitem_url", "")
     if not lineitem_url:
         raise HTTPException(status_code=400, detail="lineitem_url required")
+    launch_id = body.get("launch_id", "")
+
     try:
-        token = await get_lti_service_token(["https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly"])
+        token, token_ex_id = await get_service_token(
+            ["https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly"],
+            launch_id=launch_id or None,
+        )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Token fetch failed: {e}")
+
     results_url = lineitem_url.rstrip("/") + "/results"
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        r = await client.get(results_url, headers={
+    r, service_ex_id = await logged_request(
+        "GET",
+        results_url,
+        headers={
             "Authorization": f"Bearer {token}",
             "Accept": "application/vnd.ims.lis.v2.resultcontainer+json",
-        })
-        if not r.is_success:
-            raise HTTPException(status_code=r.status_code, detail=r.text)
-        return {"results": r.json()}
+        },
+        operation="ags_get_results",
+        launch_id=launch_id or None,
+    )
+    if not r.is_success:
+        raise HTTPException(status_code=r.status_code, detail=r.text)
+
+    ex_ids = [i for i in [token_ex_id, service_ex_id] if i]
+    return {
+        "results": r.json(),
+        "exchanges": get_exchanges_by_ids(ex_ids),
+    }
 
 
 @app.post("/api/nrps/memberships")
@@ -610,33 +917,51 @@ async def api_nrps_memberships(request: Request):
     memberships_url = nrps_claim.get("context_memberships_url")
     if not memberships_url:
         raise HTTPException(status_code=400, detail="No NRPS memberships URL in launch payload")
+
     try:
-        token = await get_lti_service_token(["https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly"])
+        token, token_ex_id = await get_service_token(
+            ["https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly"],
+            launch_id=launch_id,
+        )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Token fetch failed: {e}")
-    members = []
-    next_url = memberships_url
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        while next_url and len(members) < 500:
-            r = await client.get(next_url, headers={
+
+    members: list = []
+    page_ex_ids: list[str] = []
+    next_url: str | None = memberships_url
+
+    while next_url and len(members) < 500:
+        r, page_ex_id = await logged_request(
+            "GET",
+            next_url,
+            headers={
                 "Authorization": f"Bearer {token}",
                 "Accept": "application/vnd.ims.lti-nrps.v2.membershipcontainer+json",
-            })
-            if not r.is_success:
-                raise HTTPException(status_code=r.status_code, detail=r.text)
-            data = r.json()
-            members.extend(data.get("members", []))
-            # Follow pagination
-            next_url = None
-            link_header = r.headers.get("link", "")
-            for part in link_header.split(","):
-                part = part.strip()
-                if 'rel="next"' in part:
-                    url_part = part.split(";")[0].strip()
-                    if url_part.startswith("<") and url_part.endswith(">"):
-                        next_url = url_part[1:-1]
-                    break
-    return {"members": members, "count": len(members)}
+            },
+            operation="nrps_memberships",
+            launch_id=launch_id,
+        )
+        page_ex_ids.append(page_ex_id)
+        if not r.is_success:
+            raise HTTPException(status_code=r.status_code, detail=r.text)
+        data = r.json()
+        members.extend(data.get("members", []))
+        next_url = None
+        link_header = r.headers.get("link", "")
+        for part in link_header.split(","):
+            part = part.strip()
+            if 'rel="next"' in part:
+                url_part = part.split(";")[0].strip()
+                if url_part.startswith("<") and url_part.endswith(">"):
+                    next_url = url_part[1:-1]
+                break
+
+    ex_ids = [i for i in [token_ex_id] + page_ex_ids if i]
+    return {
+        "members": members,
+        "count": len(members),
+        "exchanges": get_exchanges_by_ids(ex_ids),
+    }
 
 
 @app.post("/api/deep-link/response")
@@ -645,10 +970,13 @@ async def api_deep_link_response(request: Request):
     launch_id = body.get("launch_id", "")
     launch = get_launch_or_404(launch_id)
     payload = launch.get("payload", {})
-    dl_settings = payload.get("https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings", {})
+    dl_settings = payload.get(
+        "https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings", {}
+    )
     return_url = dl_settings.get("deep_link_return_url")
     if not return_url:
         raise HTTPException(status_code=400, detail="No deep_link_return_url in launch payload")
+
     dl_data = dl_settings.get("data")
     content_items = body.get("content_items", [])
     now = int(time.time())
@@ -665,9 +993,55 @@ async def api_deep_link_response(request: Request):
     }
     if dl_data:
         claims["https://purl.imsglobal.org/spec/lti-dl/claim/data"] = dl_data
+
     priv_pem = (KEYS_DIR / "private.pem").read_text()
-    signed_token = jwt.encode(claims, priv_pem, algorithm="RS256", headers={"kid": "lti-tester-key-1"})
-    return {"jwt": signed_token, "deep_link_return_url": return_url}
+    signed_token = jwt.encode(
+        claims, priv_pem, algorithm="RS256",
+        headers={"kid": "lti-tester-key-1"},
+    )
+
+    # Log the deep link response we're about to send
+    dl_ex_id = str(uuid.uuid4())[:8]
+    dl_exchange: dict = {
+        "id": dl_ex_id,
+        "timestamp": time.time(),
+        "operation": "deep_link_response",
+        "launch_id": launch_id,
+        "request": {
+            "method": "POST",
+            "url": return_url + " (browser form POST)",
+            "headers": {"Content-Type": "application/x-www-form-urlencoded"},
+            "body": {
+                "JWT": _redact_str(signed_token),
+                "JWT_claims_sent": {
+                    k.split("/")[-1]: v
+                    for k, v in claims.items()
+                    if not isinstance(v, list)
+                },
+                "content_items": content_items,
+            },
+        },
+        "response": {
+            "status": 0,
+            "reason": "Browser form POST — response shown in new tab",
+            "headers": {},
+            "all_headers": {},
+            "body": "Form submitted via browser to Blackboard's deep_link_return_url",
+        },
+        "ok": True,
+        "duration_ms": 0,
+        "error": None,
+    }
+    exchanges.insert(0, dl_exchange)
+    if len(exchanges) > MAX_EXCHANGES:
+        exchanges.pop()
+
+    return {
+        "jwt": signed_token,
+        "deep_link_return_url": return_url,
+        "claims_sent": claims,
+        "exchanges": get_exchanges_by_ids([dl_ex_id]),
+    }
 
 
 @app.get("/api/ags/scopes/{launch_id}")
