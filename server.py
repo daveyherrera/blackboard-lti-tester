@@ -368,8 +368,13 @@ async def validate_lti_jwt(
 
     keys = await fetch_jwks()
     if not keys:
+        try:
+            unverified = jwt.get_unverified_claims(token)
+        except Exception:
+            unverified = {}
         return (
-            False, {},
+            False,
+            unverified,
             "Cannot fetch Blackboard's JWKS — check JWKS URL in Settings",
         )
 
@@ -619,7 +624,7 @@ async def lti_redirect(
         "validation_error": error if not is_valid else "",
         "header": header,
         "payload": payload,
-        "raw_token": id_token if not is_valid else "[stored — fetch by ID]",
+        "raw_token": id_token,
         "state_data": {k: v for k, v in state_data.items() if k != "nonce"},
         "exchange_ids": [bb_token_exchange_id],
     }
@@ -629,7 +634,7 @@ async def lti_redirect(
 
     suffix = "" if is_valid else "&error=validation_failed"
     return RedirectResponse(
-        url=f"{GITHUB_PAGES_URL}/?launch={launch_id}{suffix}", status_code=302
+        url=f"{GITHUB_PAGES_URL}/tool.html?launch={launch_id}{suffix}", status_code=302
     )
 
 

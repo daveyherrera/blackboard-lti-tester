@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BB LTI Tester — Tool View</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #161b27;
+  --surface2: #1e2536;
+  --border: rgba(255,255,255,0.08);
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --dim: #475569;
+  --accent: #0ea5e9;      /* sky blue — distinct from dashboard indigo */
+  --accent2: #0284c7;
+  --success: #22c55e;
+  --error: #ef4444;
+  --warn: #f59e0b;
+  --purple: #a855f7;
+  --cyan: #06b6d4;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; font-size: 14px; min-height: 100vh; }
+
+/* ── Top bar ── */
+.topbar {
+  background: var(--surface);
+  border-bottom: 2px solid var(--accent);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.topbar-brand { font-weight: 700; font-size: 15px; color: var(--text); letter-spacing: -0.01em; }
+.topbar-badge {
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.topbar-spacer { flex: 1; }
+.topbar-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); }
+.status-dot.ok { background: var(--success); box-shadow: 0 0 6px var(--success); }
+.topbar-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid rgba(14,165,233,0.35);
+  border-radius: 5px;
+}
+.topbar-link:hover { background: rgba(14,165,233,0.1); }
+
+/* ── Main layout ── */
+.main { padding: 20px; max-width: 960px; margin: 0 auto; }
+
+/* ── Launch banner ── */
+.launch-banner {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+.launch-banner-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 8px; }
+.launch-meta { display: flex; flex-wrap: wrap; gap: 16px; }
+.launch-meta-item { display: flex; flex-direction: column; gap: 2px; }
+.launch-meta-label { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; }
+.launch-meta-val { font-size: 13px; font-weight: 600; color: var(--text); }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge-valid { background: rgba(34,197,94,0.15); color: var(--success); border: 1px solid rgba(34,197,94,0.3); }
+.badge-invalid { background: rgba(239,68,68,0.15); color: var(--error); border: 1px solid rgba(239,68,68,0.3); }
+.badge-dl { background: rgba(168,85,247,0.15); color: var(--purple); border: 1px solid rgba(168,85,247,0.3); }
+.badge-regular { background: rgba(14,165,233,0.15); color: var(--accent); border: 1px solid rgba(14,165,233,0.3); }
+.error-msg { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); border-radius: 6px; padding: 8px 12px; color: var(--error); font-size: 12px; margin-top: 10px; }
+
+/* ── Grid ── */
+.action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+@media (max-width: 680px) { .action-grid { grid-template-columns: 1fr; } }
+
+/* ── Cards ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.card-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.card-icon { font-size: 16px; }
+.card-title { font-weight: 700; font-size: 13px; }
+.card-subtitle { font-size: 11px; color: var(--muted); }
+.card-body { padding: 16px; }
+.card-unavail { padding: 20px 16px; color: var(--dim); font-size: 12px; text-align: center; }
+
+/* ── Forms ── */
+.form-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+.form-row label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.form-row input, .form-row select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  width: 100%;
+}
+.form-row input:focus, .form-row select:focus { outline: none; border-color: var(--accent); }
+
+/* ── Buttons ── */
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+.btn:hover { opacity: 0.85; }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-full { width: 100%; }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+
+/* ── Results ── */
+.result-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  font-family: monospace;
+  font-size: 11px;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--muted);
+}
+.result-ok { border-color: rgba(34,197,94,0.3); color: var(--success); }
+.result-err { border-color: rgba(239,68,68,0.3); color: var(--error); }
+
+/* ── Roster ── */
+.roster-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+.roster-table th { color: var(--dim); text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+.roster-table td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text); }
+.roster-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* ── Deep link builder ── */
+.dl-type-select { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.dl-type-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--muted);
+  font-family: inherit;
+}
+.dl-type-btn.active { border-color: var(--purple); background: rgba(168,85,247,0.12); color: var(--purple); }
+
+/* ── Exchanges inline ── */
+.exchange-inline { margin-top: 12px; }
+.exchange-inline-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); margin-bottom: 6px; }
+.exch-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  overflow: hidden;
+  font-size: 12px;
+}
+.exch-item-hdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.exch-item-hdr:hover { background: rgba(255,255,255,0.03); }
+.method-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(14,165,233,0.2);
+  color: var(--accent);
+}
+.method-pill.POST { background: rgba(168,85,247,0.2); color: var(--purple); }
+.method-pill.GET { background: rgba(34,197,94,0.15); color: var(--success); }
+.status-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.status-ok { background: rgba(34,197,94,0.15); color: var(--success); }
+.status-err { background: rgba(239,68,68,0.15); color: var(--error); }
+.exch-url { flex: 1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.exch-dur { font-size: 10px; color: var(--dim); }
+.exch-body { display: none; padding: 10px; border-top: 1px solid var(--border); }
+.exch-body.open { display: block; }
+.exch-pre { background: rgba(0,0,0,0.3); border-radius: 4px; padding: 8px; font-family: monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all; max-height: 180px; overflow-y: auto; margin-bottom: 8px; color: var(--muted); }
+.exch-section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin-bottom: 4px; }
+
+/* ── Empty state ── */
+.empty-state { text-align: center; padding: 40px 20px; color: var(--dim); font-size: 13px; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 20px; right: 20px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 16px; font-size: 13px;
+  opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">BB LTI Tester</div>
+  <div class="topbar-badge">Tool View</div>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-status">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">Connecting…</span>
+  </div>
+  <a href="https://daveyherrera.github.io/blackboard-lti-tester/" target="_blank" class="topbar-link">↗ Dashboard</a>
+</div>
+
+<div class="main" id="main">
+  <div class="empty-state" id="loading-msg">Loading launch data…</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var BACKEND_URL = localStorage.getItem('lti_backend_url') || 'http://localhost:8080';
+var launchId = null;
+var launchData = null;
+var dlContentType = 'ltiResourceLink';
+
+// ── Init ──────────────────────────────────────────
+
+window.addEventListener('DOMContentLoaded', function() {
+  var params = new URLSearchParams(window.location.search);
+  launchId = params.get('launch');
+  var hasError = params.get('error');
+
+  checkBackend();
+  setInterval(checkBackend, 8000);
+
+  if (!launchId) {
+    document.getElementById('main').innerHTML = '<div class="empty-state">No launch ID in URL. Launch this tool from within Blackboard Learn.</div>';
+    return;
+  }
+
+  loadLaunch(launchId, hasError);
+});
+
+function checkBackend() {
+  fetch(BACKEND_URL + '/api/health')
+    .then(function(r) { return r.json(); })
+    .then(function() {
+      document.getElementById('status-dot').className = 'status-dot ok';
+      document.getElementById('status-text').textContent = 'Connected';
+    })
+    .catch(function() {
+      document.getElementById('status-dot').className = 'status-dot';
+      document.getElementById('status-text').textContent = 'Disconnected';
+    });
+}
+
+function loadLaunch(id, hasError) {
+  fetch(BACKEND_URL + '/api/launches/' + id)
+    .then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function(data) {
+      launchData = data;
+      renderTool();
+    })
+    .catch(function(e) {
+      document.getElementById('main').innerHTML =
+        '<div class="empty-state">Could not load launch <code>' + esc(id) + '</code>.<br>Make sure the backend is running and you launched from Blackboard.</div>';
+    });
+}
+
+// ── Render ────────────────────────────────────────
+
+function renderTool() {
+  var d = launchData;
+  var payload = d.payload || {};
+  var msgType = payload['https://purl.imsglobal.org/spec/lti/claim/message_type'] || '';
+  var isDl = msgType === 'LtiDeepLinkingRequest';
+  var context = payload['https://purl.imsglobal.org/spec/lti/claim/context'] || {};
+  var nameInfo = payload['https://purl.imsglobal.org/spec/lti/claim/lis'] || {};
+  var givenName = payload.given_name || '';
+  var familyName = payload.family_name || '';
+  var userEmail = payload.email || '';
+  var roles = (payload['https://purl.imsglobal.org/spec/lti/claim/roles'] || []).map(function(r) {
+    return r.replace('http://purl.imsglobal.org/vocab/lis/v2/', '').replace('http://purl.imsglobal.org/vocab/lti/', '');
+  });
+  var hasAgs = !!payload['https://purl.imsglobal.org/spec/lti-ags/claim/endpoint'];
+  var hasNrps = !!payload['https://purl.imsglobal.org/spec/lti-nrps/claim/namesroleservice'];
+
+  var html = '';
+
+  // Banner
+  html += '<div class="launch-banner">';
+  html += '<div class="launch-banner-title">Current Launch</div>';
+  html += '<div class="launch-meta">';
+  html += metaItem('User', (givenName + ' ' + familyName).trim() || payload.sub || '—');
+  html += metaItem('Email', userEmail || '—');
+  html += metaItem('Course', context.label || context.title || '—');
+  html += metaItem('Launch Type', isDl
+    ? '<span class="badge badge-dl">Deep Linking</span>'
+    : '<span class="badge badge-regular">Regular Launch</span>');
+  html += metaItem('Validation', d.valid
+    ? '<span class="badge badge-valid">✓ Valid</span>'
+    : '<span class="badge badge-invalid">✗ Invalid</span>');
+  html += metaItem('Roles', roles.length ? roles.map(function(r){return '<span class="badge badge-regular" style="font-size:10px">'+esc(r)+'</span>';}).join(' ') : '—');
+  html += '</div>';
+  if (!d.valid && d.validation_error) {
+    html += '<div class="error-msg">⚠ ' + esc(d.validation_error) + '</div>';
+  }
+  html += '</div>';
+
+  // Action grid
+  html += '<div class="action-grid">';
+
+  // AGS card
+  html += '<div class="card">';
+  html += '<div class="card-header"><div class="card-icon">📊</div><div><div class="card-title">Submit Grade (AGS)</div><div class="card-subtitle">Assignment & Grades Service</div></div></div>';
+  if (hasAgs) {
+    var agsEp = payload['https://purl.imsglobal.org/spec/lti-ags/claim/endpoint'] || {};
+    html += '<div class="card-body">';
+    html += '<div class="form-row"><label>Score (0–100)</label><input type="number" id="ags-score" min="0" max="100" value="85" step="1"></div>';
+    html += '<div class="form-row"><label>Comment (optional)</label><input type="text" id="ags-comment" placeholder="Great work!" /></div>';
+    html += '<div class="form-row"><label>Activity Progress</label><select id="ags-activity">';
+    ['Initialized','Started','InProgress','Submitted','Completed'].forEach(function(s){
+      html += '<option' + (s==='Completed'?' selected':'') + '>' + s + '</option>';
+    });
+    html += '</select></div>';
+    html += '<div class="form-row"><label>Grading Progress</label><select id="ags-grading">';
+    ['NotReady','Failed','Pending','PendingManual','FullyGraded'].forEach(function(s){
+      html += '<option' + (s==='FullyGraded'?' selected':'') + '>' + s + '</option>';
+    });
+    html += '</select></div>';
+    html += '<button class="btn btn-primary btn-full" onclick="submitGrade()">Submit Grade</button>';
+    html += '<div id="ags-result"></div>';
+    html += '<div class="exchange-inline"><div class="exchange-inline-title">HTTP Exchanges</div><div id="ags-exchanges"></div></div>';
+    html += '</div>';
+  } else {
+    html += '<div class="card-unavail">AGS not available in this launch.<br>Ensure the placement has the correct scopes.</div>';
+  }
+  html += '</div>';
+
+  // NRPS card
+  html += '<div class="card">';
+  html += '<div class="card-header"><div class="card-icon">👥</div><div><div class="card-title">Fetch Roster (NRPS)</div><div class="card-subtitle">Names & Role Provisioning Service</div></div></div>';
+  if (hasNrps) {
+    html += '<div class="card-body">';
+    html += '<div class="form-row"><label>Role filter (optional)</label><select id="nrps-role"><option value="">All roles</option>';
+    ['Instructor','Learner','Administrator','ContentDeveloper','Mentor'].forEach(function(r){
+      html += '<option value="' + r + '">' + r + '</option>';
+    });
+    html += '</select></div>';
+    html += '<div class="form-row"><label>Limit (optional)</label><input type="number" id="nrps-limit" min="1" max="1000" placeholder="No limit"></div>';
+    html += '<button class="btn btn-primary btn-full" onclick="fetchRoster()">Fetch Roster</button>';
+    html += '<div id="nrps-result"></div>';
+    html += '<div class="exchange-inline"><div class="exchange-inline-title">HTTP Exchanges</div><div id="nrps-exchanges"></div></div>';
+    html += '</div>';
+  } else {
+    html += '<div class="card-unavail">NRPS not available in this launch.<br>Ensure the placement has the correct scopes.</div>';
+  }
+  html += '</div>';
+
+  // Deep Link card (full width if DL launch)
+  if (isDl) {
+    html += '</div>'; // close grid
+    html += '<div class="card" style="margin-bottom:20px">';
+    html += '<div class="card-header"><div class="card-icon">🔗</div><div><div class="card-title">Send Deep Link Response</div><div class="card-subtitle">Build content items and return them to Blackboard</div></div></div>';
+    html += '<div class="card-body">';
+    html += '<div class="dl-type-select">';
+    ['ltiResourceLink','link','html'].forEach(function(t){
+      var label = {ltiResourceLink:'LTI Resource Link',link:'External URL',html:'HTML Embed'}[t];
+      html += '<button class="dl-type-btn' + (t===dlContentType?' active':'') + '" data-dltype="' + t + '" onclick="setDlType(\'' + t + '\')">' + label + '</button>';
+    });
+    html += '</div>';
+    html += '<div id="dl-fields"></div>';
+    html += '<button class="btn btn-primary" onclick="sendDeepLink()" style="margin-top:4px">Send Deep Link Response</button>';
+    html += '<div id="dl-result"></div>';
+    html += '<div class="exchange-inline"><div class="exchange-inline-title">HTTP Exchanges</div><div id="dl-exchanges"></div></div>';
+    html += '</div>';
+    html += '</div>';
+    renderDlFields();
+  } else {
+    html += '</div>'; // close grid
+  }
+
+  // JWT payload card
+  html += '<div class="card" style="margin-bottom:20px">';
+  html += '<div class="card-header"><div class="card-icon">🔑</div><div><div class="card-title">JWT Payload</div><div class="card-subtitle">Decoded claims from this launch</div></div></div>';
+  html += '<div class="card-body">';
+  if (d.raw_token) {
+    var tokenId = 'tool-tok';
+    html += '<div class="raw-token-box" id="' + tokenId + '" style="background:rgba(0,0,0,0.3);border-radius:6px;padding:12px;font-family:monospace;font-size:11px;color:#94a3b8;word-break:break-all;max-height:60px;overflow-y:auto;margin-bottom:8px">' + esc(d.raw_token) + '</div>';
+    html += '<div style="display:flex;gap:8px;margin-bottom:12px">';
+    html += '<button class="btn btn-secondary btn-sm" onclick="copyTok()">⧉ Copy Token</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="toggleDecode()">⊞ Decode JWT</button>';
+    html += '</div>';
+    html += '<div id="tool-tok-decoded" style="display:none;margin-bottom:12px"></div>';
+  }
+  // Key claims table
+  html += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  html += '<thead><tr>';
+  html += '<th style="text-align:left;padding:5px 8px;color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">Claim</th>';
+  html += '<th style="text-align:left;padding:5px 8px;color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">Value</th>';
+  html += '</tr></thead><tbody>';
+  var claimsToShow = [
+    ['sub', 'User ID'],
+    ['given_name', 'First Name'],
+    ['family_name', 'Last Name'],
+    ['email', 'Email'],
+    ['https://purl.imsglobal.org/spec/lti/claim/message_type', 'Message Type'],
+    ['https://purl.imsglobal.org/spec/lti/claim/version', 'LTI Version'],
+    ['https://purl.imsglobal.org/spec/lti/claim/deployment_id', 'Deployment ID'],
+    ['iss', 'Issuer'],
+    ['aud', 'Audience'],
+    ['nonce', 'Nonce'],
+  ];
+  claimsToShow.forEach(function(pair) {
+    var v = payload[pair[0]];
+    if (v === undefined || v === null || v === '') return;
+    var vs = Array.isArray(v) ? v.join(', ') : String(v);
+    html += '<tr><td style="padding:5px 8px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--muted)">' + esc(pair[1]) + '</td>';
+    html += '<td style="padding:5px 8px;border-bottom:1px solid rgba(255,255,255,0.04);font-family:monospace;font-size:11px;word-break:break-all">' + esc(vs) + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  html += '</div></div>';
+
+  document.getElementById('main').innerHTML = html;
+  if (isDl) renderDlFields();
+}
+
+function metaItem(label, valHtml) {
+  return '<div class="launch-meta-item"><div class="launch-meta-label">' + esc(label) + '</div><div class="launch-meta-val">' + valHtml + '</div></div>';
+}
+
+// ── AGS ───────────────────────────────────────────
+
+function submitGrade() {
+  if (!launchData) return;
+  var score = parseFloat(document.getElementById('ags-score').value);
+  var comment = document.getElementById('ags-comment').value;
+  var activity = document.getElementById('ags-activity').value;
+  var grading = document.getElementById('ags-grading').value;
+  var resEl = document.getElementById('ags-result');
+  resEl.innerHTML = '<div class="result-box">Submitting…</div>';
+  var body = {
+    launch_id: launchData.id,
+    score_given: score,
+    score_maximum: 100,
+    comment: comment,
+    activity_progress: activity,
+    grading_progress: grading,
+  };
+  fetch(BACKEND_URL + '/api/ags/score', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var ok = data.result && !data.result.error;
+      resEl.innerHTML = '<div class="result-box ' + (ok ? 'result-ok' : 'result-err') + '">' + esc(JSON.stringify(data.result, null, 2)) + '</div>';
+      renderExchanges('ags-exchanges', data.exchanges || []);
+    })
+    .catch(function(e) {
+      resEl.innerHTML = '<div class="result-box result-err">Error: ' + esc(String(e)) + '</div>';
+    });
+}
+
+// ── NRPS ──────────────────────────────────────────
+
+function fetchRoster() {
+  if (!launchData) return;
+  var role = document.getElementById('nrps-role').value;
+  var limit = document.getElementById('nrps-limit').value;
+  var resEl = document.getElementById('nrps-result');
+  resEl.innerHTML = '<div class="result-box">Fetching roster…</div>';
+  var body = { launch_id: launchData.id };
+  if (role) body.role = role;
+  if (limit) body.limit = parseInt(limit);
+  fetch(BACKEND_URL + '/api/nrps/members', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var members = (data.result && data.result.members) || [];
+      if (members.length === 0) {
+        resEl.innerHTML = '<div class="result-box">No members returned.</div>';
+      } else {
+        var tbl = '<div style="margin-top:12px;overflow-x:auto"><table class="roster-table"><thead><tr><th>Name</th><th>Email</th><th>Role(s)</th><th>Status</th></tr></thead><tbody>';
+        members.forEach(function(m) {
+          var name = [m.name, m.given_name, m.family_name].filter(Boolean).join(' / ') || m.user_id || '—';
+          var email = m.email || '—';
+          var roles = (m.roles || []).map(function(r){ return r.replace(/.*\//,''); }).join(', ');
+          var status = m.status || '—';
+          tbl += '<tr><td>' + esc(name) + '</td><td>' + esc(email) + '</td><td>' + esc(roles) + '</td><td>' + esc(status) + '</td></tr>';
+        });
+        tbl += '</tbody></table><div style="font-size:11px;color:var(--dim);margin-top:6px">' + members.length + ' member(s) returned</div></div>';
+        resEl.innerHTML = tbl;
+      }
+      renderExchanges('nrps-exchanges', data.exchanges || []);
+    })
+    .catch(function(e) {
+      resEl.innerHTML = '<div class="result-box result-err">Error: ' + esc(String(e)) + '</div>';
+    });
+}
+
+// ── Deep Linking ──────────────────────────────────
+
+function setDlType(t) {
+  dlContentType = t;
+  document.querySelectorAll('.dl-type-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.dltype === t);
+  });
+  renderDlFields();
+}
+
+function renderDlFields() {
+  var el = document.getElementById('dl-fields');
+  if (!el) return;
+  var html = '';
+  if (dlContentType === 'ltiResourceLink') {
+    html += '<div class="form-row"><label>Title</label><input type="text" id="dl-title" placeholder="My LTI Resource"></div>';
+    html += '<div class="form-row"><label>Description (optional)</label><input type="text" id="dl-desc" placeholder=""></div>';
+    html += '<div class="form-row"><label>Target Link URI</label><input type="text" id="dl-url" placeholder="https://..."></div>';
+    html += '<div class="form-row"><label>Custom Params (key=value, one per line)</label><input type="text" id="dl-custom" placeholder="param1=value1"></div>';
+  } else if (dlContentType === 'link') {
+    html += '<div class="form-row"><label>Title</label><input type="text" id="dl-title" placeholder="External Resource"></div>';
+    html += '<div class="form-row"><label>URL</label><input type="text" id="dl-url" placeholder="https://..."></div>';
+    html += '<div class="form-row"><label>Icon URL (optional)</label><input type="text" id="dl-icon" placeholder="https://..."></div>';
+  } else if (dlContentType === 'html') {
+    html += '<div class="form-row"><label>Title</label><input type="text" id="dl-title" placeholder="HTML Embed"></div>';
+    html += '<div class="form-row"><label>HTML</label><input type="text" id="dl-html-val" placeholder="<p>Hello from Deep Linking!</p>"></div>';
+    html += '<div class="form-row"><label>Width (optional)</label><input type="number" id="dl-width" placeholder="800"></div>';
+    html += '<div class="form-row"><label>Height (optional)</label><input type="number" id="dl-height" placeholder="600"></div>';
+  }
+  el.innerHTML = html;
+}
+
+function sendDeepLink() {
+  if (!launchData) return;
+  var resEl = document.getElementById('dl-result');
+  resEl.innerHTML = '<div class="result-box">Building response…</div>';
+  var item = { type: dlContentType };
+  var titleEl = document.getElementById('dl-title');
+  if (titleEl) item.title = titleEl.value;
+  var urlEl = document.getElementById('dl-url');
+  if (urlEl && urlEl.value) item.url = urlEl.value;
+  var descEl = document.getElementById('dl-desc');
+  if (descEl && descEl.value) item.description = descEl.value;
+  var customEl = document.getElementById('dl-custom');
+  if (customEl && customEl.value) {
+    var cp = {};
+    customEl.value.split('\n').forEach(function(line) {
+      var kv = line.split('=');
+      if (kv.length >= 2) cp[kv[0].trim()] = kv.slice(1).join('=').trim();
+    });
+    if (Object.keys(cp).length) item.custom = cp;
+  }
+  var iconEl = document.getElementById('dl-icon');
+  if (iconEl && iconEl.value) item.icon = { url: iconEl.value };
+  var htmlEl = document.getElementById('dl-html-val');
+  if (htmlEl && htmlEl.value) item.html = htmlEl.value;
+  var wEl = document.getElementById('dl-width');
+  if (wEl && wEl.value) item.iframe = { width: parseInt(wEl.value), height: parseInt(document.getElementById('dl-height').value || 600) };
+
+  fetch(BACKEND_URL + '/api/deep-link/respond', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ launch_id: launchData.id, content_items: [item] }),
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.result && data.result.form_html) {
+        resEl.innerHTML = '<div class="result-box result-ok">Deep link response ready — posting form to Blackboard…</div>';
+        // Auto-submit the form
+        var div = document.createElement('div');
+        div.style.display = 'none';
+        div.innerHTML = data.result.form_html;
+        document.body.appendChild(div);
+        var form = div.querySelector('form');
+        if (form) form.submit();
+      } else {
+        resEl.innerHTML = '<div class="result-box ' + (data.result && !data.result.error ? 'result-ok' : 'result-err') + '">' + esc(JSON.stringify(data.result, null, 2)) + '</div>';
+      }
+      renderExchanges('dl-exchanges', data.exchanges || []);
+    })
+    .catch(function(e) {
+      resEl.innerHTML = '<div class="result-box result-err">Error: ' + esc(String(e)) + '</div>';
+    });
+}
+
+// ── Exchange renderer ─────────────────────────────
+
+function renderExchanges(containerId, exchanges) {
+  var el = document.getElementById(containerId);
+  if (!el || !exchanges.length) { if (el) el.innerHTML = '<div style="color:var(--dim);font-size:11px">No exchanges recorded.</div>'; return; }
+  var html = '';
+  exchanges.forEach(function(ex, i) {
+    var method = ex.request_method || 'GET';
+    var status = ex.response_status || 0;
+    var isOk = status >= 200 && status < 300;
+    var url = ex.request_url || '';
+    var dur = ex.duration_ms ? Math.round(ex.duration_ms) + 'ms' : '';
+    var exId = containerId + '-ex-' + i;
+    html += '<div class="exch-item">';
+    html += '<div class="exch-item-hdr" onclick="toggleEx(\'' + exId + '\')">';
+    html += '<span class="method-pill ' + esc(method) + '">' + esc(method) + '</span>';
+    html += '<span class="status-pill ' + (isOk?'status-ok':'status-err') + '">' + status + '</span>';
+    html += '<span class="exch-url" title="' + esc(url) + '">' + esc(url) + '</span>';
+    html += '<span class="exch-dur">' + esc(dur) + '</span>';
+    html += '</div>';
+    html += '<div class="exch-body" id="' + exId + '">';
+    html += '<div class="exch-section-label">Request Headers</div>';
+    html += '<div class="exch-pre">' + esc(JSON.stringify(ex.request_headers || {}, null, 2)) + '</div>';
+    if (ex.request_body) {
+      html += '<div class="exch-section-label">Request Body</div>';
+      html += '<div class="exch-pre">' + esc(typeof ex.request_body === 'string' ? ex.request_body : JSON.stringify(ex.request_body, null, 2)) + '</div>';
+    }
+    html += '<div class="exch-section-label">Response Headers</div>';
+    html += '<div class="exch-pre">' + esc(JSON.stringify(ex.response_headers || {}, null, 2)) + '</div>';
+    if (ex.response_body) {
+      html += '<div class="exch-section-label">Response Body</div>';
+      html += '<div class="exch-pre">' + esc(typeof ex.response_body === 'string' ? ex.response_body : JSON.stringify(ex.response_body, null, 2)) + '</div>';
+    }
+    html += '</div></div>';
+  });
+  el.innerHTML = html;
+}
+
+function toggleEx(id) {
+  var el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+
+// ── JWT Decode ────────────────────────────────────
+
+function copyTok() {
+  if (!launchData || !launchData.raw_token) return;
+  navigator.clipboard.writeText(launchData.raw_token).then(function() {
+    showToast('Token copied');
+  }).catch(function() {
+    var ta = document.createElement('textarea');
+    ta.value = launchData.raw_token;
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('Token copied');
+  });
+}
+
+function toggleDecode() {
+  var el = document.getElementById('tool-tok-decoded');
+  if (!el) return;
+  if (el.style.display !== 'none') { el.style.display = 'none'; return; }
+  el.innerHTML = renderJwtDecoded(launchData.raw_token);
+  el.style.display = 'block';
+}
+
+function renderJwtDecoded(raw) {
+  var parts = (raw || '').split('.');
+  if (parts.length !== 3) return '<div style="color:var(--error);font-size:12px">Not a valid JWT</div>';
+  function b64decode(s) {
+    try { s = s.replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4)s+='='; return JSON.parse(atob(s)); } catch(e){return null;}
+  }
+  function colorize(obj) {
+    if (obj === null) return '<span style="color:#f87171">null</span>';
+    var j = JSON.stringify(obj, null, 2).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    j = j.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function(m){
+      if(/^"/.test(m)){if(/:$/.test(m))return '<span style="color:#94a3b8">'+m+'</span>';return '<span style="color:#86efac">'+m+'</span>';}
+      if(/true|false/.test(m))return '<span style="color:#60a5fa">'+m+'</span>';
+      if(/null/.test(m))return '<span style="color:#f87171">'+m+'</span>';
+      return '<span style="color:#fbbf24">'+m+'</span>';
+    });
+    return '<pre style="margin:0;white-space:pre-wrap;word-break:break-all;font-family:monospace;font-size:11px">'+j+'</pre>';
+  }
+  var hdr = b64decode(parts[0]), pld = b64decode(parts[1]);
+  var sigSnip = parts[2].substring(0,20)+'…'+parts[2].substring(parts[2].length-10);
+  var s = '<div style="border:1px solid rgba(255,255,255,0.08);border-radius:6px;overflow:hidden">';
+  s += '<div style="background:rgba(6,182,212,0.08)"><div style="padding:5px 12px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#06b6d4">Header</div><div style="padding:10px 12px">'+(hdr?colorize(hdr):esc(parts[0]))+'</div></div>';
+  s += '<div style="background:rgba(168,85,247,0.08)"><div style="padding:5px 12px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#a855f7">Payload</div><div style="padding:10px 12px">'+(pld?colorize(pld):esc(parts[1]))+'</div></div>';
+  s += '<div style="background:rgba(239,68,68,0.08)"><div style="padding:5px 12px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#ef4444">Signature</div><div style="padding:10px 12px;font-family:monospace;font-size:11px;opacity:0.7;color:#ef4444">'+esc(sigSnip)+'</div></div>';
+  s += '</div>';
+  return s;
+}
+
+// ── Utils ─────────────────────────────────────────
+
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2000);
+}
+</script>
+</body>
+</html>

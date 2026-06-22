@@ -443,10 +443,60 @@ nav { flex: 1; padding: 10px 8px; }
   font-size: 11px;
   color: var(--muted);
   word-break: break-all;
-  max-height: 120px;
+  max-height: 80px;
   overflow-y: auto;
   margin: 8px 0;
 }
+.jwt-token-actions {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 6px 0;
+}
+.jwt-token-actions button {
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.4);
+  color: var(--accent);
+  border-radius: 5px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.jwt-token-actions button:hover { background: rgba(99,102,241,0.3); }
+.jwt-decoded {
+  margin-top: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.jwt-decoded-part {
+  padding: 10px 14px;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.jwt-decoded-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 14px 4px;
+  opacity: 0.85;
+}
+.jwt-part-header { background: rgba(6,182,212,0.08); }
+.jwt-part-header .jwt-decoded-label { color: #06b6d4; }
+.jwt-part-payload { background: rgba(168,85,247,0.08); }
+.jwt-part-payload .jwt-decoded-label { color: #a855f7; }
+.jwt-part-sig { background: rgba(239,68,68,0.08); }
+.jwt-part-sig .jwt-decoded-label { color: #ef4444; }
+.jwt-key { color: #94a3b8; }
+.jwt-str { color: #86efac; }
+.jwt-num { color: #fbbf24; }
+.jwt-bool { color: #60a5fa; }
+.jwt-null { color: #f87171; opacity: 0.7; }
+.jwt-dot-header { color: #06b6d4; font-weight: 700; }
+.jwt-dot-payload { color: #a855f7; font-weight: 700; }
+.jwt-dot-sig { color: #ef4444; font-weight: 700; }
 .role-chip {
   display: inline-block;
   background: rgba(99,102,241,0.1);
@@ -1725,10 +1775,83 @@ function renderJwtInspector(launch) {
 
   // Raw token
   var raw = launch.raw_token || '';
-  html += renderSection('Raw Token', '<div class="raw-token-box">' + esc(raw) + '</div>');
+  var tokenHtml = '';
+  if (raw && raw !== '[stored — fetch by ID]' && raw !== '[redacted]') {
+    var tokenId = 'tok-' + (launch.id || 'x');
+    tokenHtml += '<div class="raw-token-box" id="' + tokenId + '">' + esc(raw) + '</div>';
+    tokenHtml += '<div class="jwt-token-actions">';
+    tokenHtml += '<button onclick="copyJwt(\'' + tokenId + '\')">⧉ Copy Token</button>';
+    tokenHtml += '<button onclick="toggleJwtDecode(\'' + tokenId + '-decoded\',\'' + esc(raw) + '\')">⊞ Decode</button>';
+    tokenHtml += '</div>';
+    tokenHtml += '<div id="' + tokenId + '-decoded" style="display:none"></div>';
+  } else if (raw) {
+    tokenHtml += '<div class="raw-token-box">' + esc(raw) + '</div>';
+  } else {
+    tokenHtml += '<div style="color:var(--dim);font-size:12px;padding:6px 0">Token not available</div>';
+  }
+  html += renderSection('Raw Token', tokenHtml);
 
   html += '</div>';
   return html;
+}
+
+function copyJwt(boxId) {
+  var el = document.getElementById(boxId);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent.trim()).then(function() {
+    showToast('Token copied to clipboard');
+  }).catch(function() {
+    var ta = document.createElement('textarea');
+    ta.value = el.textContent.trim();
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('Token copied');
+  });
+}
+
+function toggleJwtDecode(targetId, rawToken) {
+  var el = document.getElementById(targetId);
+  if (!el) return;
+  if (el.style.display !== 'none') { el.style.display = 'none'; return; }
+  el.innerHTML = renderJwtDecoded(rawToken);
+  el.style.display = 'block';
+}
+
+function renderJwtDecoded(raw) {
+  var parts = raw.split('.');
+  if (parts.length !== 3) return '<div style="color:var(--error);font-size:12px">Not a valid JWT</div>';
+  function b64decode(s) {
+    try {
+      s = s.replace(/-/g,'+').replace(/_/g,'/');
+      while (s.length % 4) s += '=';
+      return JSON.parse(atob(s));
+    } catch(e) { return null; }
+  }
+  function colorizeJson(obj) {
+    if (obj === null) return '<span class="jwt-null">null</span>';
+    var json = JSON.stringify(obj, null, 2);
+    json = json.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    json = json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function(m) {
+      if (/^"/.test(m)) {
+        if (/:$/.test(m)) return '<span class="jwt-key">' + m + '</span>';
+        return '<span class="jwt-str">' + m + '</span>';
+      }
+      if (/true|false/.test(m)) return '<span class="jwt-bool">' + m + '</span>';
+      if (/null/.test(m)) return '<span class="jwt-null">' + m + '</span>';
+      return '<span class="jwt-num">' + m + '</span>';
+    });
+    return '<pre style="margin:0;white-space:pre-wrap;word-break:break-all">' + json + '</pre>';
+  }
+  var hdr = b64decode(parts[0]);
+  var pld = b64decode(parts[1]);
+  var sigSnippet = parts[2].substring(0,20) + '...' + parts[2].substring(parts[2].length-10);
+  return '<div class="jwt-decoded">'
+    + '<div class="jwt-part-header"><div class="jwt-decoded-label">Header</div><div class="jwt-decoded-part">' + (hdr ? colorizeJson(hdr) : esc(parts[0])) + '</div></div>'
+    + '<div class="jwt-part-payload"><div class="jwt-decoded-label">Payload</div><div class="jwt-decoded-part">' + (pld ? colorizeJson(pld) : esc(parts[1])) + '</div></div>'
+    + '<div class="jwt-part-sig"><div class="jwt-decoded-label">Signature</div><div class="jwt-decoded-part" style="font-size:11px;word-break:break-all;opacity:0.7"><span class="jwt-dot-sig">' + esc(sigSnippet) + '</span></div></div>'
+    + '</div>';
 }
 
 function renderSection(title, content) {
