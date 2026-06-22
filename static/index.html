@@ -823,7 +823,7 @@ nav { flex: 1; padding: 10px 8px; }
   background: rgba(99,102,241,0.15); color: var(--accent);
   padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600;
 }
-.deep-link-banner {
+.deep-link-banner-unused {
   background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3);
   border-radius: 8px; padding: 12px 16px; margin: 0 16px 12px;
   display: flex; align-items: center; gap: 12px;
@@ -843,9 +843,9 @@ nav { flex: 1; padding: 10px 8px; }
 <!-- ── Sidebar ── -->
 <aside id="sidebar">
   <div class="sidebar-logo">
-    <div class="sidebar-logo-title">BB LTI Tester</div>
+    <div class="sidebar-logo-title">BB LTI Inspector</div>
     <div class="sidebar-logo-sub">Blackboard LTI 1.3</div>
-    <div class="sidebar-logo-badge">v1.0</div>
+    <div class="sidebar-logo-badge">Monitor</div>
   </div>
   <nav>
     <div class="nav-label">Core</div>
@@ -1128,9 +1128,9 @@ nav { flex: 1; padding: 10px 8px; }
           <li>Enter a course in Blackboard Learn as an Instructor or Student.</li>
           <li>Add the tool to a content area: <strong>Build Content → [your placement name]</strong>.</li>
           <li>Click the tool link — Learn initiates the OIDC login flow.</li>
-          <li>Watch the <strong>Launches</strong> page in this dashboard — the JWT appears within seconds.</li>
+          <li>Watch the <strong>Launches</strong> page here — the JWT appears within seconds.</li>
           <li>Click any launch to inspect the full payload: user info, roles, context, services, and Blackboard extensions.</li>
-          <li>For <strong>Deep Linking</strong>: expand the launch and click <strong>Open Deep Link Builder</strong> to build and send content items back to Blackboard.</li>
+          <li>To <strong>submit grades, fetch the roster, or respond to Deep Linking requests</strong>, use the <strong>LTI Lab</strong> — the interface that loads inside the Blackboard iframe when you launch the tool.</li>
         </ol>
         <p style="margin-top:10px"><strong>Troubleshooting:</strong> If the launch doesn't appear, check that <code>./start.sh</code> is still running and the URLs in the Developer Portal match your current ngrok hostname. ngrok URLs change on every restart — update them each time.</p>
       </div>
@@ -1224,47 +1224,6 @@ nav { flex: 1; padding: 10px 8px; }
       <div id="ags-lineitems-exchanges"></div>
     </div>
 
-    <div class="card" id="ags-score-card">
-      <div class="card-title"><span class="icon">✏️</span> Submit Score</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">Line Item URL</label>
-          <input class="form-input" id="score-lineitem-url" placeholder="https://...">
-        </div>
-        <div class="form-group">
-          <label class="form-label">User ID</label>
-          <input class="form-input" id="score-user-id" placeholder="(from launch sub)">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Score Given</label>
-          <input class="form-input" id="score-given" type="number" value="85">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Score Maximum</label>
-          <input class="form-input" id="score-max" type="number" value="100">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Activity Progress</label>
-          <select class="form-input" id="score-activity-progress">
-            <option>Initialized</option><option>Started</option><option>InProgress</option><option>Submitted</option><option selected>Completed</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Grading Progress</label>
-          <select class="form-input" id="score-grading-progress">
-            <option>NotReady</option><option>Failed</option><option>Pending</option><option>PendingManual</option><option selected>FullyGraded</option>
-          </select>
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">Comment (optional)</label>
-          <input class="form-input" id="score-comment" placeholder="">
-        </div>
-      </div>
-      <button class="btn btn-primary" onclick="submitScore()">Submit Score</button>
-      <div id="score-result" style="margin-top:10px"></div>
-      <div id="ags-score-exchanges"></div>
-    </div>
-
     <div class="card" id="ags-results-card">
       <div class="card-title"><span class="icon">📈</span> Results
         <button class="btn btn-ghost" style="margin-left:auto;font-size:12px" onclick="fetchResults()">Fetch Results</button>
@@ -1342,39 +1301,6 @@ nav { flex: 1; padding: 10px 8px; }
   </div>
 
 </main>
-
-<!-- Deep Link Builder Modal -->
-<div id="dl-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.6);overflow-y:auto">
-  <div style="margin:40px auto;max-width:700px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-      <div class="page-title" style="font-size:18px">🔗 Deep Link Builder</div>
-      <button class="btn btn-ghost" onclick="closeDlModal()">✕ Close</button>
-    </div>
-    <div id="dl-launch-info" style="margin-bottom:16px;padding:10px 14px;background:rgba(99,102,241,0.08);border-radius:8px;font-size:13px;color:var(--muted)"></div>
-
-    <div id="dl-items-list" style="margin-bottom:16px"></div>
-
-    <div style="padding:14px;background:rgba(0,0,0,0.2);border-radius:8px;margin-bottom:14px">
-      <div class="card-title" style="margin-bottom:10px">Add Content Item</div>
-      <div class="form-group">
-        <label class="form-label">Type</label>
-        <select class="form-input" id="dl-type" onchange="updateDlFields()">
-          <option value="ltiResourceLink">LTI Resource Link</option>
-          <option value="link">Web Link</option>
-          <option value="file">File</option>
-          <option value="html">HTML Fragment</option>
-          <option value="image">Image</option>
-        </select>
-      </div>
-      <div id="dl-fields"></div>
-      <button class="btn btn-ghost" onclick="addDlItem()" style="margin-top:6px">+ Add Item</button>
-    </div>
-
-    <button class="btn btn-primary" onclick="sendDeepLinkResponse()" style="width:100%">Send to Blackboard</button>
-    <div id="dl-status" style="margin-top:10px"></div>
-    <div id="dl-exchanges"></div>
-  </div>
-</div>
 
 <!-- Toast container -->
 <div id="toast-container"></div>
@@ -1690,6 +1616,22 @@ function renderJwtInspector(launch) {
 
   if (!launch.valid && launch.validation_error) {
     html += '<div class="error-banner">Validation error: ' + esc(launch.validation_error) + '</div>';
+  }
+
+  // LTI Lab callout
+  var msgType = payload['https://purl.imsglobal.org/spec/lti/claim/message_type'] || '';
+  var hasAgs = !!payload['https://purl.imsglobal.org/spec/lti-ags/claim/endpoint'];
+  var hasNrps = !!payload['https://purl.imsglobal.org/spec/lti-nrps/claim/namesroleservice'];
+  var isDl = msgType === 'LtiDeepLinkingRequest';
+  if (isDl || hasAgs || hasNrps) {
+    var caps = [];
+    if (isDl) caps.push('Deep Linking response');
+    if (hasAgs) caps.push('grade submission');
+    if (hasNrps) caps.push('roster fetch');
+    html += '<div style="background:rgba(14,165,233,0.07);border:1px solid rgba(14,165,233,0.25);border-radius:7px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#7dd3fc;display:flex;align-items:center;gap:10px">'
+      + '<span style="font-size:16px">🧪</span>'
+      + '<span>This launch supports <strong>' + caps.join(', ') + '</strong>. Use the <strong>LTI Lab</strong> (the interface inside Blackboard) to perform these actions.</span>'
+      + '</div>';
   }
 
   // Standard claims
@@ -2347,8 +2289,6 @@ var agsCurrentLaunchId = '';
 var nrpsRosterData = [];
 var nrpsSortCol = 'name';
 var nrpsSortAsc = true;
-var dlCurrentLaunchId = '';
-var dlItems = [];
 
 function getAgsLaunches() {
   return launchesData.filter(function(l) {
@@ -2633,153 +2573,6 @@ function exportRosterCsv() {
   a.click();
 }
 
-// ── Deep Linking ───────────────────────────────────────────────────────────
-
-function openDlModal(launchId) {
-  dlCurrentLaunchId = launchId;
-  dlItems = [];
-  var l = launchesData.find(function(x) { return x.id === launchId; });
-  var info = '';
-  if (l) {
-    var ctx = ((l.payload || {})['https://purl.imsglobal.org/spec/lti/claim/context'] || {}).title || '';
-    info = 'Launch: #' + launchId + (ctx ? ' — ' + ctx : '');
-  }
-  document.getElementById('dl-launch-info').textContent = info;
-  document.getElementById('dl-items-list').innerHTML = '';
-  document.getElementById('dl-status').innerHTML = '';
-  document.getElementById('dl-modal').style.display = '';
-  updateDlFields();
-}
-
-function closeDlModal() { document.getElementById('dl-modal').style.display = 'none'; }
-
-function updateDlFields() {
-  var type = document.getElementById('dl-type').value;
-  var html = '';
-  if (type === 'ltiResourceLink') {
-    html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
-    html += '<div class="form-group" style="grid-column:1/-1"><label class="form-label">Title</label><input class="form-input" id="dl-title" placeholder="My LTI Link"></div>';
-    html += '<div class="form-group" style="grid-column:1/-1"><label class="form-label">URL</label><input class="form-input" id="dl-url" placeholder="https://..."></div>';
-    html += '<div class="form-group"><label class="form-label">Custom Params (key=value, one per line)</label><textarea class="form-input" id="dl-custom" rows="3" placeholder="key=value"></textarea></div>';
-    html += '<div class="form-group"><label class="form-label"><input type="checkbox" id="dl-grade-toggle" onchange="toggleDlGrade()"> Add Grade Column</label>';
-    html += '<div id="dl-grade-fields" style="display:none;margin-top:8px"><input class="form-input" id="dl-grade-label" placeholder="Grade label" style="margin-bottom:6px"><input class="form-input" id="dl-grade-max" type="number" value="100" placeholder="Max score"></div></div>';
-    html += '</div>';
-  } else if (type === 'link') {
-    html = '<div class="form-group"><label class="form-label">Title</label><input class="form-input" id="dl-title" placeholder="My Link"></div>';
-    html += '<div class="form-group"><label class="form-label">URL</label><input class="form-input" id="dl-url" placeholder="https://..."></div>';
-  } else if (type === 'file') {
-    html = '<div class="form-group"><label class="form-label">Title</label><input class="form-input" id="dl-title" placeholder="My File"></div>';
-    html += '<div class="form-group"><label class="form-label">URL</label><input class="form-input" id="dl-url" placeholder="https://..."></div>';
-    html += '<div class="form-group"><label class="form-label">Expires At (ISO 8601, optional)</label><input class="form-input" id="dl-expires" placeholder="2025-12-31T00:00:00Z"></div>';
-  } else if (type === 'html') {
-    html = '<div class="form-group"><label class="form-label">Title</label><input class="form-input" id="dl-title" placeholder="My HTML"></div>';
-    html += '<div class="form-group"><label class="form-label">HTML Content</label><textarea class="form-input" id="dl-html" rows="4" placeholder="<p>Hello world</p>"></textarea></div>';
-  } else if (type === 'image') {
-    html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
-    html += '<div class="form-group" style="grid-column:1/-1"><label class="form-label">Title</label><input class="form-input" id="dl-title" placeholder="My Image"></div>';
-    html += '<div class="form-group" style="grid-column:1/-1"><label class="form-label">URL</label><input class="form-input" id="dl-url" placeholder="https://..."></div>';
-    html += '<div class="form-group"><label class="form-label">Width (px)</label><input class="form-input" id="dl-width" type="number" placeholder="800"></div>';
-    html += '<div class="form-group"><label class="form-label">Height (px)</label><input class="form-input" id="dl-height" type="number" placeholder="600"></div>';
-    html += '</div>';
-  }
-  document.getElementById('dl-fields').innerHTML = html;
-}
-
-function toggleDlGrade() {
-  var chk = document.getElementById('dl-grade-toggle');
-  var fields = document.getElementById('dl-grade-fields');
-  if (fields) fields.style.display = chk && chk.checked ? '' : 'none';
-}
-
-function addDlItem() {
-  var type = document.getElementById('dl-type').value;
-  var title = (document.getElementById('dl-title') || {}).value || 'Untitled';
-  var url = (document.getElementById('dl-url') || {}).value || '';
-  var item = { type: type, title: title };
-
-  if (type === 'ltiResourceLink') {
-    if (url) item.url = url;
-    var customRaw = (document.getElementById('dl-custom') || {}).value || '';
-    var custom = {};
-    customRaw.split('\n').forEach(function(line) {
-      var idx = line.indexOf('=');
-      if (idx !== -1) { custom[line.slice(0,idx).trim()] = line.slice(idx+1).trim(); }
-    });
-    if (Object.keys(custom).length) item.custom = custom;
-    var gradeToggle = document.getElementById('dl-grade-toggle');
-    if (gradeToggle && gradeToggle.checked) {
-      item.lineItem = {
-        label: (document.getElementById('dl-grade-label') || {}).value || title,
-        scoreMaximum: parseFloat((document.getElementById('dl-grade-max') || {}).value) || 100,
-      };
-    }
-  } else if (type === 'link' || type === 'file' || type === 'image') {
-    item.url = url;
-    if (type === 'file') { var exp = (document.getElementById('dl-expires') || {}).value; if (exp) item.expiresAt = exp; }
-    if (type === 'image') {
-      var w = (document.getElementById('dl-width') || {}).value; var h = (document.getElementById('dl-height') || {}).value;
-      if (w) item.width = parseInt(w); if (h) item.height = parseInt(h);
-    }
-  } else if (type === 'html') {
-    item.html = (document.getElementById('dl-html') || {}).value || '';
-  }
-
-  if (dlItems.length >= 5) { showToast('Maximum 5 items', 'error'); return; }
-  dlItems.push(item);
-  renderDlItems();
-}
-
-function renderDlItems() {
-  var html = '';
-  dlItems.forEach(function(item, idx) {
-    html += '<div class="dl-item-chip">';
-    html += '<span class="type-badge">' + esc(item.type) + '</span>';
-    html += '<span style="flex:1">' + esc(item.title || '') + (item.url ? ' — ' + esc(item.url) : '') + '</span>';
-    html += '<button class="action-btn" onclick="removeDlItem(' + idx + ')">✕</button>';
-    html += '</div>';
-  });
-  document.getElementById('dl-items-list').innerHTML = html;
-}
-
-function removeDlItem(idx) { dlItems.splice(idx, 1); renderDlItems(); }
-
-async function sendDeepLinkResponse() {
-  if (!dlCurrentLaunchId) { showToast('No launch selected', 'error'); return; }
-  if (!dlItems.length) { showToast('Add at least one content item', 'error'); return; }
-  var statusEl = document.getElementById('dl-status');
-  var exEl = document.getElementById('dl-exchanges');
-  statusEl.innerHTML = '<span style="color:var(--muted)">Sending…</span>';
-  if (exEl) exEl.innerHTML = '';
-  try {
-    var r = await fetch(getBackendUrl() + '/api/deep-link/response', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ launch_id: dlCurrentLaunchId, content_items: dlItems }),
-    });
-    var data = await r.json();
-    if (exEl) renderExchangeBlock(data.exchanges || [], 'dl-exchanges');
-    if (!r.ok) { statusEl.innerHTML = '<span style="color:var(--error)">' + esc(data.detail || JSON.stringify(data)) + '</span>'; return; }
-    statusEl.innerHTML = '<span style="color:var(--success)">✓ JWT signed and posted to Blackboard in new tab</span>';
-    buildAutoSubmitForm(data.jwt, data.deep_link_return_url);
-    showToast('Deep link response sent', 'success');
-  } catch(e) { statusEl.innerHTML = '<span style="color:var(--error)">' + esc(e.message) + '</span>'; }
-}
-
-function buildAutoSubmitForm(jwtToken, returnUrl) {
-  var form = document.createElement('form');
-  form.method = 'POST';
-  form.action = returnUrl;
-  form.target = '_blank';
-  var input = document.createElement('input');
-  input.type = 'hidden';
-  input.name = 'JWT';
-  input.value = jwtToken;
-  form.appendChild(input);
-  document.body.appendChild(form);
-  form.submit();
-  document.body.removeChild(form);
-}
-
 // ── Update navigate to handle new pages ───────────────────────────────────
 
 var _origNavigate = navigate;
@@ -2795,29 +2588,6 @@ navigate = function(page) {
   }
 };
 
-// ── Patch renderJwtInspector to add service action buttons ───────────────
-
-var _origRenderJwtInspector = renderJwtInspector;
-renderJwtInspector = function(launch) {
-  var html = _origRenderJwtInspector(launch);
-  var payload = launch.payload || {};
-  var hasAgs = !!payload['https://purl.imsglobal.org/spec/lti-ags/claim/endpoint'];
-  var hasNrps = !!payload['https://purl.imsglobal.org/spec/lti-nrps/claim/namesroleservice'];
-  var isDl = payload['https://purl.imsglobal.org/spec/lti/claim/message_type'] === 'LtiDeepLinkingRequest';
-  var prefix = '';
-  if (hasAgs || hasNrps) {
-    prefix += '<div class="service-action-bar">';
-    if (hasAgs) prefix += '<button class="action-btn" onclick="navigate(\'ags\');setTimeout(function(){document.getElementById(\'ags-launch-select\').value=\'' + esc(launch.id) + '\';onAgsLaunchChange();},100)">📊 Open in AGS</button>';
-    if (hasNrps) prefix += '<button class="action-btn" onclick="navigate(\'nrps\');setTimeout(function(){document.getElementById(\'nrps-launch-select\').value=\'' + esc(launch.id) + '\';},100)">👥 Fetch Roster</button>';
-    prefix += '</div>';
-  }
-  if (isDl) {
-    prefix += '<div class="deep-link-banner"><span>🔗 Deep Linking Request — Build and send your response</span><button class="dl-btn" onclick="openDlModal(\'' + esc(launch.id) + '\')">Open Deep Link Builder</button></div>';
-  }
-  // Insert prefix right after the opening <div class="jwt-inspector open">
-  html = html.replace('<div class="jwt-inspector open">', '<div class="jwt-inspector open">' + prefix);
-  return html;
-};
 </script>
 </body>
 </html>
