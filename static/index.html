@@ -603,6 +603,53 @@ nav { flex: 1; padding: 10px 8px; }
 .text-muted { color: var(--muted); }
 .text-sm { font-size: 12px; }
 .font-mono { font-family: monospace; }
+
+/* ── Tables ── */
+.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.data-table th {
+  text-align: left; padding: 8px 10px; color: var(--muted);
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none;
+}
+.data-table th:hover { color: var(--text); }
+.data-table td { padding: 8px 10px; border-bottom: 1px solid rgba(51,65,85,0.4); }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: rgba(255,255,255,0.02); }
+.role-pill {
+  display: inline-block; background: rgba(99,102,241,0.1);
+  border: 1px solid rgba(99,102,241,0.2); color: var(--accent);
+  border-radius: 5px; padding: 1px 7px; font-size: 10px; margin: 1px 2px;
+}
+.btn-sm { padding: 4px 8px; font-size: 11px; border-radius: 5px; }
+.action-btn {
+  background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2);
+  color: var(--accent); border-radius: 5px; padding: 3px 8px;
+  font-size: 11px; cursor: pointer; margin-right: 4px;
+}
+.action-btn:hover { background: rgba(99,102,241,0.2); }
+.dl-item-chip {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; background: rgba(0,0,0,0.2);
+  border-radius: 7px; margin-bottom: 6px; font-size: 13px;
+}
+.dl-item-chip .type-badge {
+  background: rgba(99,102,241,0.15); color: var(--accent);
+  padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600;
+}
+.deep-link-banner {
+  background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 8px; padding: 12px 16px; margin: 0 16px 12px;
+  display: flex; align-items: center; gap: 12px;
+}
+.deep-link-banner .dl-btn {
+  margin-left: auto; background: var(--accent); color: #fff;
+  border: none; border-radius: 6px; padding: 6px 14px;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.service-action-bar {
+  display: flex; gap: 8px; padding: 10px 16px 4px;
+}
 </style>
 </head>
 <body>
@@ -615,7 +662,7 @@ nav { flex: 1; padding: 10px 8px; }
     <div class="sidebar-logo-badge">v1.0</div>
   </div>
   <nav>
-    <div class="nav-label">Navigation</div>
+    <div class="nav-label">Core</div>
     <div class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
       <span class="nav-icon">⬡</span> Dashboard
     </div>
@@ -623,6 +670,14 @@ nav { flex: 1; padding: 10px 8px; }
       <span class="nav-icon">↗</span> Launches
       <span class="nav-badge" id="nav-launch-count" style="display:none">0</span>
     </div>
+    <div class="nav-label">LTI Advantage</div>
+    <div class="nav-item" data-page="ags" onclick="navigate('ags')">
+      <span class="nav-icon">📊</span> AGS (Grades)
+    </div>
+    <div class="nav-item" data-page="nrps" onclick="navigate('nrps')">
+      <span class="nav-icon">👥</span> NRPS (Roster)
+    </div>
+    <div class="nav-label">Tools</div>
     <div class="nav-item" data-page="setup" onclick="navigate('setup')">
       <span class="nav-icon">📋</span> Setup Guide
     </div>
@@ -897,7 +952,161 @@ nav { flex: 1; padding: 10px 8px; }
     </div>
   </div>
 
+
+  <!-- AGS (Grades) -->
+  <div class="page" id="page-ags">
+    <div class="page-header">
+      <div>
+        <div class="page-title">AGS — Assignment &amp; Grading</div>
+        <div class="page-sub">Manage line items and submit scores via LTI Advantage</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">🚀</span> Launch</div>
+      <div class="form-group">
+        <label class="form-label">Select Launch (AGS)</label>
+        <select class="form-input" id="ags-launch-select" onchange="onAgsLaunchChange()">
+          <option value="">— select a launch —</option>
+        </select>
+        <div class="form-hint" id="ags-launch-hint"></div>
+      </div>
+    </div>
+
+    <div class="card" id="ags-lineitems-card">
+      <div class="card-title"><span class="icon">📋</span> Line Items
+        <button class="btn btn-ghost" style="margin-left:auto;font-size:12px" onclick="fetchLineitems()">Fetch Line Items</button>
+        <button class="btn btn-ghost" style="font-size:12px" onclick="toggleCreateLineitem()">+ Create</button>
+      </div>
+      <div id="create-lineitem-form" style="display:none;margin-bottom:14px;padding:14px;background:rgba(0,0,0,0.2);border-radius:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div><label class="form-label">Label</label><input class="form-input" id="li-label" placeholder="Assignment 1"></div>
+          <div><label class="form-label">Max Score</label><input class="form-input" id="li-max" type="number" value="100"></div>
+          <div><label class="form-label">Resource ID (optional)</label><input class="form-input" id="li-resource-id" placeholder=""></div>
+          <div><label class="form-label">Tag (optional)</label><input class="form-input" id="li-tag" placeholder=""></div>
+        </div>
+        <button class="btn btn-primary" onclick="createLineitem()">Create Line Item</button>
+      </div>
+      <div id="ags-lineitems-table"><div style="color:var(--dim);font-size:13px">Click "Fetch Line Items" to load.</div></div>
+    </div>
+
+    <div class="card" id="ags-score-card">
+      <div class="card-title"><span class="icon">✏️</span> Submit Score</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Line Item URL</label>
+          <input class="form-input" id="score-lineitem-url" placeholder="https://...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">User ID</label>
+          <input class="form-input" id="score-user-id" placeholder="(from launch sub)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Score Given</label>
+          <input class="form-input" id="score-given" type="number" value="85">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Score Maximum</label>
+          <input class="form-input" id="score-max" type="number" value="100">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Activity Progress</label>
+          <select class="form-input" id="score-activity-progress">
+            <option>Initialized</option><option>Started</option><option>InProgress</option><option>Submitted</option><option selected>Completed</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Grading Progress</label>
+          <select class="form-input" id="score-grading-progress">
+            <option>NotReady</option><option>Failed</option><option>Pending</option><option>PendingManual</option><option selected>FullyGraded</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Comment (optional)</label>
+          <input class="form-input" id="score-comment" placeholder="">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="submitScore()">Submit Score</button>
+      <div id="score-result" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card" id="ags-results-card">
+      <div class="card-title"><span class="icon">📈</span> Results
+        <button class="btn btn-ghost" style="margin-left:auto;font-size:12px" onclick="fetchResults()">Fetch Results</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Line Item URL</label>
+        <input class="form-input" id="results-lineitem-url" placeholder="https://...">
+      </div>
+      <div id="ags-results-table"><div style="color:var(--dim);font-size:13px">Enter a line item URL and click Fetch Results.</div></div>
+    </div>
+  </div>
+
+  <!-- NRPS (Roster) -->
+  <div class="page" id="page-nrps">
+    <div class="page-header">
+      <div>
+        <div class="page-title">NRPS — Names &amp; Roles</div>
+        <div class="page-sub">Fetch course roster via LTI Advantage</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">🚀</span> Launch</div>
+      <div class="form-group">
+        <label class="form-label">Select Launch (NRPS)</label>
+        <select class="form-input" id="nrps-launch-select">
+          <option value="">— select a launch —</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">👥</span> Roster
+        <button class="btn btn-ghost" style="margin-left:auto;font-size:12px" onclick="fetchRoster()">Fetch Roster</button>
+        <button class="btn btn-ghost" style="font-size:12px" onclick="exportRosterCsv()">Export CSV</button>
+        <span id="nrps-count-badge" style="display:none" class="count-badge"></span>
+      </div>
+      <div class="form-group">
+        <input class="form-input" id="nrps-filter" placeholder="Filter by name, email, or role…" oninput="filterRoster()" style="margin-bottom:10px">
+      </div>
+      <div id="nrps-table"><div style="color:var(--dim);font-size:13px">Select a launch and click Fetch Roster.</div></div>
+    </div>
+  </div>
+
 </main>
+
+<!-- Deep Link Builder Modal -->
+<div id="dl-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.6);overflow-y:auto">
+  <div style="margin:40px auto;max-width:700px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div class="page-title" style="font-size:18px">🔗 Deep Link Builder</div>
+      <button class="btn btn-ghost" onclick="closeDlModal()">✕ Close</button>
+    </div>
+    <div id="dl-launch-info" style="margin-bottom:16px;padding:10px 14px;background:rgba(99,102,241,0.08);border-radius:8px;font-size:13px;color:var(--muted)"></div>
+
+    <div id="dl-items-list" style="margin-bottom:16px"></div>
+
+    <div style="padding:14px;background:rgba(0,0,0,0.2);border-radius:8px;margin-bottom:14px">
+      <div class="card-title" style="margin-bottom:10px">Add Content Item</div>
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select class="form-input" id="dl-type" onchange="updateDlFields()">
+          <option value="ltiResourceLink">LTI Resource Link</option>
+          <option value="link">Web Link</option>
+          <option value="file">File</option>
+          <option value="html">HTML Fragment</option>
+          <option value="image">Image</option>
+        </select>
+      </div>
+      <div id="dl-fields"></div>
+      <button class="btn btn-ghost" onclick="addDlItem()" style="margin-top:6px">+ Add Item</button>
+    </div>
+
+    <button class="btn btn-primary" onclick="sendDeepLinkResponse()" style="width:100%">Send to Blackboard</button>
+    <div id="dl-status" style="margin-top:10px"></div>
+  </div>
+</div>
 
 <!-- Toast container -->
 <div id="toast-container"></div>
@@ -1497,6 +1706,490 @@ document.addEventListener('DOMContentLoaded', function() {
   handleUrlParams();
   tsInterval = setInterval(refreshTimestamps, 30000);
 });
+
+// ── Role labels ────────────────────────────────────────────────────────────
+
+var ROLE_LABELS = {
+  'http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor': 'Instructor',
+  'http://purl.imsglobal.org/vocab/lis/v2/membership#Learner': 'Student',
+  'http://purl.imsglobal.org/vocab/lis/v2/membership#Administrator': 'Administrator',
+  'http://purl.imsglobal.org/vocab/lis/v2/membership#ContentDeveloper': 'Content Developer',
+  'http://purl.imsglobal.org/vocab/lis/v2/membership#Mentor': 'Mentor',
+  'http://purl.imsglobal.org/vocab/lis/v2/membership#Manager': 'Manager',
+  'http://purl.imsglobal.org/vocab/lis/v2/membership#Member': 'Member',
+  'http://purl.imsglobal.org/vocab/lis/v2/membership#Officer': 'Officer',
+  'http://purl.imsglobal.org/vocab/lis/v2/institution/person#Administrator': 'Institution Admin',
+  'http://purl.imsglobal.org/vocab/lis/v2/institution/person#Staff': 'Staff',
+  'http://purl.imsglobal.org/vocab/lis/v2/institution/person#Faculty': 'Faculty',
+  'http://purl.imsglobal.org/vocab/lis/v2/institution/person#Student': 'Student (Institution)',
+  'http://purl.imsglobal.org/vocab/lis/v2/system/person#SysAdmin': 'System Admin',
+  'http://purl.imsglobal.org/vocab/lis/v2/system/person#Administrator': 'System Administrator',
+};
+
+function roleLabel(uri) {
+  if (ROLE_LABELS[uri]) return ROLE_LABELS[uri];
+  var parts = uri.split(/[#\/]/);
+  return parts[parts.length - 1] || uri;
+}
+
+// ── AGS ────────────────────────────────────────────────────────────────────
+
+var agsCurrentLaunchId = '';
+var nrpsRosterData = [];
+var nrpsSortCol = 'name';
+var nrpsSortAsc = true;
+var dlCurrentLaunchId = '';
+var dlItems = [];
+
+function getAgsLaunches() {
+  return launchesData.filter(function(l) {
+    return l.payload && l.payload['https://purl.imsglobal.org/spec/lti-ags/claim/endpoint'];
+  });
+}
+
+function getNrpsLaunches() {
+  return launchesData.filter(function(l) {
+    return l.payload && l.payload['https://purl.imsglobal.org/spec/lti-nrps/claim/namesroleservice'];
+  });
+}
+
+function populateAgsSelect() {
+  var sel = document.getElementById('ags-launch-select');
+  if (!sel) return;
+  var current = sel.value;
+  sel.innerHTML = '<option value="">— select a launch —</option>';
+  getAgsLaunches().forEach(function(l) {
+    var ctx = (l.payload['https://purl.imsglobal.org/spec/lti/claim/context'] || {}).title || '';
+    var opt = document.createElement('option');
+    opt.value = l.id;
+    opt.textContent = '#' + l.id + (ctx ? ' — ' + ctx : '');
+    sel.appendChild(opt);
+  });
+  if (current) sel.value = current;
+}
+
+function populateNrpsSelect() {
+  var sel = document.getElementById('nrps-launch-select');
+  if (!sel) return;
+  var current = sel.value;
+  sel.innerHTML = '<option value="">— select a launch —</option>';
+  getNrpsLaunches().forEach(function(l) {
+    var ctx = (l.payload['https://purl.imsglobal.org/spec/lti/claim/context'] || {}).title || '';
+    var opt = document.createElement('option');
+    opt.value = l.id;
+    opt.textContent = '#' + l.id + (ctx ? ' — ' + ctx : '');
+    sel.appendChild(opt);
+  });
+  if (current) sel.value = current;
+}
+
+function onAgsLaunchChange() {
+  agsCurrentLaunchId = document.getElementById('ags-launch-select').value;
+  var hint = document.getElementById('ags-launch-hint');
+  if (!agsCurrentLaunchId) { if (hint) hint.textContent = ''; return; }
+  var l = launchesData.find(function(x) { return x.id === agsCurrentLaunchId; });
+  if (!l) return;
+  var sub = (l.payload || {}).sub || '';
+  if (sub) { document.getElementById('score-user-id').value = sub; }
+  if (hint) {
+    var ags = (l.payload || {})['https://purl.imsglobal.org/spec/lti-ags/claim/endpoint'] || {};
+    hint.textContent = 'lineitems: ' + (ags.lineitems || 'none');
+  }
+}
+
+async function fetchLineitems() {
+  var launchId = document.getElementById('ags-launch-select').value;
+  if (!launchId) { showToast('Select a launch first', 'error'); return; }
+  var el = document.getElementById('ags-lineitems-table');
+  el.innerHTML = '<div style="color:var(--dim)">Loading…</div>';
+  try {
+    var r = await fetch(getBackendUrl() + '/api/ags/lineitems', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ launch_id: launchId }),
+    });
+    var data = await r.json();
+    if (!r.ok) { el.innerHTML = '<div style="color:var(--error)">' + esc(data.detail || JSON.stringify(data)) + '</div>'; return; }
+    var items = Array.isArray(data.lineitems) ? data.lineitems : [];
+    if (!items.length) { el.innerHTML = '<div style="color:var(--dim)">No line items found.</div>'; return; }
+    var html = '<table class="data-table"><thead><tr><th>Label</th><th>Max Score</th><th>Resource ID</th><th>Tag</th><th>Actions</th></tr></thead><tbody>';
+    items.forEach(function(item) {
+      var itemId = item.id || '';
+      html += '<tr>';
+      html += '<td>' + esc(item.label || '') + '</td>';
+      html += '<td>' + esc(String(item.scoreMaximum || '')) + '</td>';
+      html += '<td>' + esc(item.resourceId || '') + '</td>';
+      html += '<td>' + esc(item.tag || '') + '</td>';
+      html += '<td>';
+      html += '<button class="action-btn" onclick="fillScoreForm(\'' + esc(itemId).replace(/'/g,"&#39;") + '\')">Submit Score</button>';
+      html += '<button class="action-btn" onclick="fillResultsForm(\'' + esc(itemId).replace(/'/g,"&#39;") + '\')">View Results</button>';
+      html += '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--error)">' + esc(e.message) + '</div>';
+  }
+}
+
+function fillScoreForm(url) {
+  document.getElementById('score-lineitem-url').value = url;
+  document.getElementById('score-result').innerHTML = '';
+}
+
+function fillResultsForm(url) {
+  document.getElementById('results-lineitem-url').value = url;
+  document.getElementById('ags-results-table').innerHTML = '<div style="color:var(--dim)">Click Fetch Results.</div>';
+}
+
+function toggleCreateLineitem() {
+  var f = document.getElementById('create-lineitem-form');
+  f.style.display = f.style.display === 'none' ? '' : 'none';
+}
+
+async function createLineitem() {
+  var launchId = document.getElementById('ags-launch-select').value;
+  if (!launchId) { showToast('Select a launch first', 'error'); return; }
+  var body = {
+    launch_id: launchId,
+    label: document.getElementById('li-label').value || 'Untitled',
+    scoreMaximum: parseFloat(document.getElementById('li-max').value) || 100,
+    resourceId: document.getElementById('li-resource-id').value,
+    tag: document.getElementById('li-tag').value,
+  };
+  try {
+    var r = await fetch(getBackendUrl() + '/api/ags/create-lineitem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    var data = await r.json();
+    if (!r.ok) { showToast('Error: ' + (data.detail || r.status), 'error'); return; }
+    showToast('Line item created', 'success');
+    fetchLineitems();
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function submitScore() {
+  var body = {
+    launch_id: document.getElementById('ags-launch-select').value,
+    lineitem_url: document.getElementById('score-lineitem-url').value.trim(),
+    userId: document.getElementById('score-user-id').value.trim(),
+    scoreGiven: parseFloat(document.getElementById('score-given').value),
+    scoreMaximum: parseFloat(document.getElementById('score-max').value),
+    activityProgress: document.getElementById('score-activity-progress').value,
+    gradingProgress: document.getElementById('score-grading-progress').value,
+    comment: document.getElementById('score-comment').value,
+  };
+  if (!body.lineitem_url) { showToast('Line Item URL required', 'error'); return; }
+  var el = document.getElementById('score-result');
+  el.innerHTML = '<span style="color:var(--muted)">Submitting…</span>';
+  try {
+    var r = await fetch(getBackendUrl() + '/api/ags/scores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    var data = await r.json();
+    if (!r.ok) { el.innerHTML = '<span style="color:var(--error)">' + esc(data.detail || JSON.stringify(data)) + '</span>'; return; }
+    el.innerHTML = '<span style="color:var(--success)">✓ Score submitted (HTTP ' + data.status + ')</span>';
+    showToast('Score submitted', 'success');
+  } catch(e) { el.innerHTML = '<span style="color:var(--error)">' + esc(e.message) + '</span>'; }
+}
+
+async function fetchResults() {
+  var url = document.getElementById('results-lineitem-url').value.trim();
+  if (!url) { showToast('Line Item URL required', 'error'); return; }
+  var el = document.getElementById('ags-results-table');
+  el.innerHTML = '<div style="color:var(--dim)">Loading…</div>';
+  try {
+    var r = await fetch(getBackendUrl() + '/api/ags/results', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ launch_id: document.getElementById('ags-launch-select').value, lineitem_url: url }),
+    });
+    var data = await r.json();
+    if (!r.ok) { el.innerHTML = '<div style="color:var(--error)">' + esc(data.detail || JSON.stringify(data)) + '</div>'; return; }
+    var results = Array.isArray(data.results) ? data.results : [];
+    if (!results.length) { el.innerHTML = '<div style="color:var(--dim)">No results yet.</div>'; return; }
+    var html = '<table class="data-table"><thead><tr><th>User ID</th><th>Result Score</th><th>Max</th><th>Comment</th></tr></thead><tbody>';
+    results.forEach(function(res) {
+      html += '<tr><td style="font-family:monospace;font-size:11px">' + esc(res.userId || '') + '</td><td>' + esc(String(res.resultScore ?? '')) + '</td><td>' + esc(String(res.resultMaximum ?? '')) + '</td><td>' + esc(res.comment || '') + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } catch(e) { el.innerHTML = '<div style="color:var(--error)">' + esc(e.message) + '</div>'; }
+}
+
+// ── NRPS ───────────────────────────────────────────────────────────────────
+
+async function fetchRoster() {
+  var launchId = document.getElementById('nrps-launch-select').value;
+  if (!launchId) { showToast('Select a launch first', 'error'); return; }
+  var el = document.getElementById('nrps-table');
+  el.innerHTML = '<div style="color:var(--dim)">Loading roster…</div>';
+  try {
+    var r = await fetch(getBackendUrl() + '/api/nrps/memberships', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ launch_id: launchId }),
+    });
+    var data = await r.json();
+    if (!r.ok) { el.innerHTML = '<div style="color:var(--error)">' + esc(data.detail || JSON.stringify(data)) + '</div>'; return; }
+    nrpsRosterData = data.members || [];
+    var badge = document.getElementById('nrps-count-badge');
+    badge.textContent = data.count;
+    badge.style.display = '';
+    renderRosterTable();
+  } catch(e) { el.innerHTML = '<div style="color:var(--error)">' + esc(e.message) + '</div>'; }
+}
+
+function renderRosterTable() {
+  var filter = (document.getElementById('nrps-filter') || {}).value || '';
+  var filtered = nrpsRosterData.filter(function(m) {
+    var name = (m.name || '').toLowerCase();
+    var email = (m.email || '').toLowerCase();
+    var roles = (m.roles || []).map(roleLabel).join(' ').toLowerCase();
+    var q = filter.toLowerCase();
+    return !q || name.indexOf(q) !== -1 || email.indexOf(q) !== -1 || roles.indexOf(q) !== -1;
+  });
+  // Sort
+  filtered.sort(function(a, b) {
+    var av = '', bv = '';
+    if (nrpsSortCol === 'name') { av = a.name || ''; bv = b.name || ''; }
+    else if (nrpsSortCol === 'email') { av = a.email || ''; bv = b.email || ''; }
+    else if (nrpsSortCol === 'status') { av = a.status || ''; bv = b.status || ''; }
+    else if (nrpsSortCol === 'roles') { av = (a.roles || []).map(roleLabel).join(); bv = (b.roles || []).map(roleLabel).join(); }
+    var cmp = av.localeCompare(bv);
+    return nrpsSortAsc ? cmp : -cmp;
+  });
+  var arrow = function(col) { return nrpsSortCol === col ? (nrpsSortAsc ? ' ↑' : ' ↓') : ''; };
+  var html = '<table class="data-table"><thead><tr>';
+  html += '<th onclick="sortRoster(\'name\')">Name' + arrow('name') + '</th>';
+  html += '<th onclick="sortRoster(\'email\')">Email' + arrow('email') + '</th>';
+  html += '<th onclick="sortRoster(\'roles\')">Roles' + arrow('roles') + '</th>';
+  html += '<th onclick="sortRoster(\'status\')">Status' + arrow('status') + '</th>';
+  html += '</tr></thead><tbody>';
+  filtered.forEach(function(m) {
+    html += '<tr>';
+    html += '<td>' + esc(m.name || m.given_name && (m.given_name + ' ' + (m.family_name||'')).trim() || '—') + '</td>';
+    html += '<td>' + esc(m.email || '—') + '</td>';
+    html += '<td>' + (m.roles || []).map(function(r) { return '<span class="role-pill">' + esc(roleLabel(r)) + '</span>'; }).join('') + '</td>';
+    html += '<td>' + esc(m.status || '') + '</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('nrps-table').innerHTML = html;
+}
+
+function sortRoster(col) {
+  if (nrpsSortCol === col) { nrpsSortAsc = !nrpsSortAsc; } else { nrpsSortCol = col; nrpsSortAsc = true; }
+  renderRosterTable();
+}
+
+function filterRoster() { renderRosterTable(); }
+
+function exportRosterCsv() {
+  if (!nrpsRosterData.length) { showToast('No roster data to export', 'error'); return; }
+  function csvEsc(v) { v = String(v || ''); if (v.indexOf(',') !== -1 || v.indexOf('"') !== -1 || v.indexOf('\n') !== -1) { v = '"' + v.replace(/"/g, '""') + '"'; } return v; }
+  var rows = [['Name','Email','Roles','Status','User ID']];
+  nrpsRosterData.forEach(function(m) {
+    rows.push([
+      csvEsc(m.name || ''),
+      csvEsc(m.email || ''),
+      csvEsc((m.roles || []).map(roleLabel).join('; ')),
+      csvEsc(m.status || ''),
+      csvEsc(m.user_id || ''),
+    ]);
+  });
+  var csv = rows.map(function(r) { return r.join(','); }).join('\n');
+  var blob = new Blob([csv], { type: 'text/csv' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'roster.csv';
+  a.click();
+}
+
+// ── Deep Linking ───────────────────────────────────────────────────────────
+
+function openDlModal(launchId) {
+  dlCurrentLaunchId = launchId;
+  dlItems = [];
+  var l = launchesData.find(function(x) { return x.id === launchId; });
+  var info = '';
+  if (l) {
+    var ctx = ((l.payload || {})['https://purl.imsglobal.org/spec/lti/claim/context'] || {}).title || '';
+    info = 'Launch: #' + launchId + (ctx ? ' — ' + ctx : '');
+  }
+  document.getElementById('dl-launch-info').textContent = info;
+  document.getElementById('dl-items-list').innerHTML = '';
+  document.getElementById('dl-status').innerHTML = '';
+  document.getElementById('dl-modal').style.display = '';
+  updateDlFields();
+}
+
+function closeDlModal() { document.getElementById('dl-modal').style.display = 'none'; }
+
+function updateDlFields() {
+  var type = document.getElementById('dl-type').value;
+  var html = '';
+  if (type === 'ltiResourceLink') {
+    html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+    html += '<div class="form-group" style="grid-column:1/-1"><label class="form-label">Title</label><input class="form-input" id="dl-title" placeholder="My LTI Link"></div>';
+    html += '<div class="form-group" style="grid-column:1/-1"><label class="form-label">URL</label><input class="form-input" id="dl-url" placeholder="https://..."></div>';
+    html += '<div class="form-group"><label class="form-label">Custom Params (key=value, one per line)</label><textarea class="form-input" id="dl-custom" rows="3" placeholder="key=value"></textarea></div>';
+    html += '<div class="form-group"><label class="form-label"><input type="checkbox" id="dl-grade-toggle" onchange="toggleDlGrade()"> Add Grade Column</label>';
+    html += '<div id="dl-grade-fields" style="display:none;margin-top:8px"><input class="form-input" id="dl-grade-label" placeholder="Grade label" style="margin-bottom:6px"><input class="form-input" id="dl-grade-max" type="number" value="100" placeholder="Max score"></div></div>';
+    html += '</div>';
+  } else if (type === 'link') {
+    html = '<div class="form-group"><label class="form-label">Title</label><input class="form-input" id="dl-title" placeholder="My Link"></div>';
+    html += '<div class="form-group"><label class="form-label">URL</label><input class="form-input" id="dl-url" placeholder="https://..."></div>';
+  } else if (type === 'file') {
+    html = '<div class="form-group"><label class="form-label">Title</label><input class="form-input" id="dl-title" placeholder="My File"></div>';
+    html += '<div class="form-group"><label class="form-label">URL</label><input class="form-input" id="dl-url" placeholder="https://..."></div>';
+    html += '<div class="form-group"><label class="form-label">Expires At (ISO 8601, optional)</label><input class="form-input" id="dl-expires" placeholder="2025-12-31T00:00:00Z"></div>';
+  } else if (type === 'html') {
+    html = '<div class="form-group"><label class="form-label">Title</label><input class="form-input" id="dl-title" placeholder="My HTML"></div>';
+    html += '<div class="form-group"><label class="form-label">HTML Content</label><textarea class="form-input" id="dl-html" rows="4" placeholder="<p>Hello world</p>"></textarea></div>';
+  } else if (type === 'image') {
+    html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+    html += '<div class="form-group" style="grid-column:1/-1"><label class="form-label">Title</label><input class="form-input" id="dl-title" placeholder="My Image"></div>';
+    html += '<div class="form-group" style="grid-column:1/-1"><label class="form-label">URL</label><input class="form-input" id="dl-url" placeholder="https://..."></div>';
+    html += '<div class="form-group"><label class="form-label">Width (px)</label><input class="form-input" id="dl-width" type="number" placeholder="800"></div>';
+    html += '<div class="form-group"><label class="form-label">Height (px)</label><input class="form-input" id="dl-height" type="number" placeholder="600"></div>';
+    html += '</div>';
+  }
+  document.getElementById('dl-fields').innerHTML = html;
+}
+
+function toggleDlGrade() {
+  var chk = document.getElementById('dl-grade-toggle');
+  var fields = document.getElementById('dl-grade-fields');
+  if (fields) fields.style.display = chk && chk.checked ? '' : 'none';
+}
+
+function addDlItem() {
+  var type = document.getElementById('dl-type').value;
+  var title = (document.getElementById('dl-title') || {}).value || 'Untitled';
+  var url = (document.getElementById('dl-url') || {}).value || '';
+  var item = { type: type, title: title };
+
+  if (type === 'ltiResourceLink') {
+    if (url) item.url = url;
+    var customRaw = (document.getElementById('dl-custom') || {}).value || '';
+    var custom = {};
+    customRaw.split('\n').forEach(function(line) {
+      var idx = line.indexOf('=');
+      if (idx !== -1) { custom[line.slice(0,idx).trim()] = line.slice(idx+1).trim(); }
+    });
+    if (Object.keys(custom).length) item.custom = custom;
+    var gradeToggle = document.getElementById('dl-grade-toggle');
+    if (gradeToggle && gradeToggle.checked) {
+      item.lineItem = {
+        label: (document.getElementById('dl-grade-label') || {}).value || title,
+        scoreMaximum: parseFloat((document.getElementById('dl-grade-max') || {}).value) || 100,
+      };
+    }
+  } else if (type === 'link' || type === 'file' || type === 'image') {
+    item.url = url;
+    if (type === 'file') { var exp = (document.getElementById('dl-expires') || {}).value; if (exp) item.expiresAt = exp; }
+    if (type === 'image') {
+      var w = (document.getElementById('dl-width') || {}).value; var h = (document.getElementById('dl-height') || {}).value;
+      if (w) item.width = parseInt(w); if (h) item.height = parseInt(h);
+    }
+  } else if (type === 'html') {
+    item.html = (document.getElementById('dl-html') || {}).value || '';
+  }
+
+  if (dlItems.length >= 5) { showToast('Maximum 5 items', 'error'); return; }
+  dlItems.push(item);
+  renderDlItems();
+}
+
+function renderDlItems() {
+  var html = '';
+  dlItems.forEach(function(item, idx) {
+    html += '<div class="dl-item-chip">';
+    html += '<span class="type-badge">' + esc(item.type) + '</span>';
+    html += '<span style="flex:1">' + esc(item.title || '') + (item.url ? ' — ' + esc(item.url) : '') + '</span>';
+    html += '<button class="action-btn" onclick="removeDlItem(' + idx + ')">✕</button>';
+    html += '</div>';
+  });
+  document.getElementById('dl-items-list').innerHTML = html;
+}
+
+function removeDlItem(idx) { dlItems.splice(idx, 1); renderDlItems(); }
+
+async function sendDeepLinkResponse() {
+  if (!dlCurrentLaunchId) { showToast('No launch selected', 'error'); return; }
+  if (!dlItems.length) { showToast('Add at least one content item', 'error'); return; }
+  var status = document.getElementById('dl-status');
+  status.innerHTML = '<span style="color:var(--muted)">Sending…</span>';
+  try {
+    var r = await fetch(getBackendUrl() + '/api/deep-link/response', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ launch_id: dlCurrentLaunchId, content_items: dlItems }),
+    });
+    var data = await r.json();
+    if (!r.ok) { status.innerHTML = '<span style="color:var(--error)">' + esc(data.detail || JSON.stringify(data)) + '</span>'; return; }
+    status.innerHTML = '<span style="color:var(--success)">✓ Submitting to Blackboard in new tab…</span>';
+    buildAutoSubmitForm(data.jwt, data.deep_link_return_url);
+    showToast('Deep link response sent', 'success');
+  } catch(e) { status.innerHTML = '<span style="color:var(--error)">' + esc(e.message) + '</span>'; }
+}
+
+function buildAutoSubmitForm(jwtToken, returnUrl) {
+  var form = document.createElement('form');
+  form.method = 'POST';
+  form.action = returnUrl;
+  form.target = '_blank';
+  var input = document.createElement('input');
+  input.type = 'hidden';
+  input.name = 'JWT';
+  input.value = jwtToken;
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
+  document.body.removeChild(form);
+}
+
+// ── Update navigate to handle new pages ───────────────────────────────────
+
+var _origNavigate = navigate;
+navigate = function(page) {
+  _origNavigate(page);
+  if (page === 'ags') {
+    populateAgsSelect();
+  } else if (page === 'nrps') {
+    populateNrpsSelect();
+  }
+};
+
+// ── Patch renderJwtInspector to add service action buttons ───────────────
+
+var _origRenderJwtInspector = renderJwtInspector;
+renderJwtInspector = function(launch) {
+  var html = _origRenderJwtInspector(launch);
+  var payload = launch.payload || {};
+  var hasAgs = !!payload['https://purl.imsglobal.org/spec/lti-ags/claim/endpoint'];
+  var hasNrps = !!payload['https://purl.imsglobal.org/spec/lti-nrps/claim/namesroleservice'];
+  var isDl = payload['https://purl.imsglobal.org/spec/lti/claim/message_type'] === 'LtiDeepLinkingRequest';
+  var prefix = '';
+  if (hasAgs || hasNrps) {
+    prefix += '<div class="service-action-bar">';
+    if (hasAgs) prefix += '<button class="action-btn" onclick="navigate(\'ags\');setTimeout(function(){document.getElementById(\'ags-launch-select\').value=\'' + esc(launch.id) + '\';onAgsLaunchChange();},100)">📊 Open in AGS</button>';
+    if (hasNrps) prefix += '<button class="action-btn" onclick="navigate(\'nrps\');setTimeout(function(){document.getElementById(\'nrps-launch-select\').value=\'' + esc(launch.id) + '\';},100)">👥 Fetch Roster</button>';
+    prefix += '</div>';
+  }
+  if (isDl) {
+    prefix += '<div class="deep-link-banner"><span>🔗 Deep Linking Request — Build and send your response</span><button class="dl-btn" onclick="openDlModal(\'' + esc(launch.id) + '\')">Open Deep Link Builder</button></div>';
+  }
+  // Insert prefix right after the opening <div class="jwt-inspector open">
+  html = html.replace('<div class="jwt-inspector open">', '<div class="jwt-inspector open">' + prefix);
+  return html;
+};
 </script>
 </body>
 </html>

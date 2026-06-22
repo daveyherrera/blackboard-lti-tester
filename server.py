@@ -32,6 +32,7 @@ DEFAULT_CONFIG = {
     "oidc_auth_url": "https://developer.blackboard.com/api/v1/gateway/oidcauth",
     "jwks_url": "https://developer.blackboard.com/api/v1/management/applications/keys",
     "issuer": "https://blackboard.com",
+    "token_url": "https://developer.blackboard.com/api/v1/gateway/oauth2/jwttoken",
 }
 
 # ── In-memory state ──────────────────────────────────────────────────────────
@@ -39,6 +40,7 @@ DEFAULT_CONFIG = {
 pending_states: dict[str, dict] = {}
 launches: list[dict] = []
 jwks_cache: dict = {"keys": None, "fetched_at": 0}
+_token_cache: dict = {}  # scope_key -> {access_token, expires_at}
 config: dict = {}
 
 # ── Startup helpers ───────────────────────────────────────────────────────────
@@ -141,6 +143,52 @@ async def fetch_jwks(force: bool = False) -> Optional[list]:
             return keys
     except Exception:
         return jwks_cache.get("keys")  # return stale on error
+
+# ── LTI Service token ─────────────────────────────────────────────────────────
+
+async def get_lti_service_token(scopes: list) -> str:
+    scope_str = " ".join(sorted(scopes))
+    cached = _token_cache.get(scope_str)
+    if cached and time.time() < cached["expires_at"] - 30:
+        return cached["access_token"]
+
+    client_id = config.get("client_id", "")
+    token_url = config.get("token_url", "https://developer.blackboard.com/api/v1/gateway/oauth2/jwttoken")
+    now = int(time.time())
+
+    assertion_claims = {
+        "iss": client_id,
+        "sub": client_id,
+        "aud": [token_url],
+        "iat": now,
+        "exp": now + 300,
+        "jti": secrets.token_urlsafe(16),
+    }
+    priv_pem = (KEYS_DIR / "private.pem").read_text()
+    assertion = jwt.encode(assertion_claims, priv_pem, algorithm="RS256", headers={"kid": "lti-tester-key-1"})
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.post(token_url, data={
+            "grant_type": "client_credentials",
+            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            "client_assertion": assertion,
+            "scope": scope_str,
+        }, headers={"Content-Type": "application/x-www-form-urlencoded"})
+        r.raise_for_status()
+        data = r.json()
+        _token_cache[scope_str] = {
+            "access_token": data["access_token"],
+            "expires_at": time.time() + data.get("expires_in", 3600),
+        }
+        return data["access_token"]
+
+
+def get_launch_or_404(launch_id: str) -> dict:
+    launch = next((l for l in launches if l["id"] == launch_id), None)
+    if not launch:
+        raise HTTPException(status_code=404, detail="Launch not found")
+    return launch
+
 
 # ── JWT validation ───────────────────────────────────────────────────────────
 
@@ -426,7 +474,7 @@ async def api_get_config():
 async def api_save_config(request: Request):
     global config
     body = await request.json()
-    allowed = {"client_id", "deployment_id", "oidc_auth_url", "jwks_url", "issuer"}
+    allowed = {"client_id", "deployment_id", "oidc_auth_url", "jwks_url", "issuer", "token_url"}
     config = {**DEFAULT_CONFIG, **{k: v for k, v in body.items() if k in allowed}}
     save_config(config)
     return {"ok": True}
@@ -440,6 +488,198 @@ async def api_ngrok():
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "timestamp": time.time()}
+
+
+# ── LTI Advantage endpoints ───────────────────────────────────────────────────
+
+@app.post("/api/ags/lineitems")
+async def api_ags_lineitems(request: Request):
+    body = await request.json()
+    launch_id = body.get("launch_id", "")
+    launch = get_launch_or_404(launch_id)
+    payload = launch.get("payload", {})
+    ags_claim = payload.get("https://purl.imsglobal.org/spec/lti-ags/claim/endpoint", {})
+    lineitems_url = body.get("lineitem_url") or ags_claim.get("lineitems")
+    if not lineitems_url:
+        raise HTTPException(status_code=400, detail="No lineitems URL available in launch payload")
+    try:
+        token = await get_lti_service_token(["https://purl.imsglobal.org/spec/lti-ags/scope/lineitem.readonly"])
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Token fetch failed: {e}")
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.get(lineitems_url, headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.ims.lis.v2.lineitemcontainer+json",
+        })
+        if not r.is_success:
+            raise HTTPException(status_code=r.status_code, detail=r.text)
+        return {"lineitems": r.json(), "launch_id": launch_id}
+
+
+@app.post("/api/ags/create-lineitem")
+async def api_ags_create_lineitem(request: Request):
+    body = await request.json()
+    launch_id = body.get("launch_id", "")
+    launch = get_launch_or_404(launch_id)
+    payload = launch.get("payload", {})
+    ags_claim = payload.get("https://purl.imsglobal.org/spec/lti-ags/claim/endpoint", {})
+    lineitems_url = ags_claim.get("lineitems")
+    if not lineitems_url:
+        raise HTTPException(status_code=400, detail="No lineitems URL in launch payload")
+    try:
+        token = await get_lti_service_token(["https://purl.imsglobal.org/spec/lti-ags/scope/lineitem"])
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Token fetch failed: {e}")
+    lineitem_body = {
+        "label": body.get("label", "Untitled"),
+        "scoreMaximum": body.get("scoreMaximum", 100),
+    }
+    if body.get("resourceId"):
+        lineitem_body["resourceId"] = body["resourceId"]
+    if body.get("tag"):
+        lineitem_body["tag"] = body["tag"]
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.post(lineitems_url, json=lineitem_body, headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/vnd.ims.lis.v2.lineitem+json",
+        })
+        if not r.is_success:
+            raise HTTPException(status_code=r.status_code, detail=r.text)
+        return r.json()
+
+
+@app.post("/api/ags/scores")
+async def api_ags_scores(request: Request):
+    body = await request.json()
+    lineitem_url = body.get("lineitem_url", "")
+    if not lineitem_url:
+        raise HTTPException(status_code=400, detail="lineitem_url required")
+    try:
+        token = await get_lti_service_token(["https://purl.imsglobal.org/spec/lti-ags/scope/score"])
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Token fetch failed: {e}")
+    score_payload = {
+        "userId": body.get("userId", ""),
+        "scoreGiven": body.get("scoreGiven", 0),
+        "scoreMaximum": body.get("scoreMaximum", 100),
+        "activityProgress": body.get("activityProgress", "Completed"),
+        "gradingProgress": body.get("gradingProgress", "FullyGraded"),
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    if body.get("comment"):
+        score_payload["comment"] = body["comment"]
+    scores_url = lineitem_url.rstrip("/") + "/scores"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.post(scores_url, json=score_payload, headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/vnd.ims.lis.v1.score+json",
+        })
+        if not r.is_success:
+            raise HTTPException(status_code=r.status_code, detail=r.text)
+        return {"ok": True, "status": r.status_code}
+
+
+@app.post("/api/ags/results")
+async def api_ags_results(request: Request):
+    body = await request.json()
+    lineitem_url = body.get("lineitem_url", "")
+    if not lineitem_url:
+        raise HTTPException(status_code=400, detail="lineitem_url required")
+    try:
+        token = await get_lti_service_token(["https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly"])
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Token fetch failed: {e}")
+    results_url = lineitem_url.rstrip("/") + "/results"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.get(results_url, headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.ims.lis.v2.resultcontainer+json",
+        })
+        if not r.is_success:
+            raise HTTPException(status_code=r.status_code, detail=r.text)
+        return {"results": r.json()}
+
+
+@app.post("/api/nrps/memberships")
+async def api_nrps_memberships(request: Request):
+    body = await request.json()
+    launch_id = body.get("launch_id", "")
+    launch = get_launch_or_404(launch_id)
+    payload = launch.get("payload", {})
+    nrps_claim = payload.get("https://purl.imsglobal.org/spec/lti-nrps/claim/namesroleservice", {})
+    memberships_url = nrps_claim.get("context_memberships_url")
+    if not memberships_url:
+        raise HTTPException(status_code=400, detail="No NRPS memberships URL in launch payload")
+    try:
+        token = await get_lti_service_token(["https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly"])
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Token fetch failed: {e}")
+    members = []
+    next_url = memberships_url
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        while next_url and len(members) < 500:
+            r = await client.get(next_url, headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.ims.lti-nrps.v2.membershipcontainer+json",
+            })
+            if not r.is_success:
+                raise HTTPException(status_code=r.status_code, detail=r.text)
+            data = r.json()
+            members.extend(data.get("members", []))
+            # Follow pagination
+            next_url = None
+            link_header = r.headers.get("link", "")
+            for part in link_header.split(","):
+                part = part.strip()
+                if 'rel="next"' in part:
+                    url_part = part.split(";")[0].strip()
+                    if url_part.startswith("<") and url_part.endswith(">"):
+                        next_url = url_part[1:-1]
+                    break
+    return {"members": members, "count": len(members)}
+
+
+@app.post("/api/deep-link/response")
+async def api_deep_link_response(request: Request):
+    body = await request.json()
+    launch_id = body.get("launch_id", "")
+    launch = get_launch_or_404(launch_id)
+    payload = launch.get("payload", {})
+    dl_settings = payload.get("https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings", {})
+    return_url = dl_settings.get("deep_link_return_url")
+    if not return_url:
+        raise HTTPException(status_code=400, detail="No deep_link_return_url in launch payload")
+    dl_data = dl_settings.get("data")
+    content_items = body.get("content_items", [])
+    now = int(time.time())
+    claims = {
+        "iss": config.get("client_id"),
+        "aud": config.get("issuer", "https://blackboard.com"),
+        "iat": now,
+        "exp": now + 600,
+        "nonce": secrets.token_urlsafe(16),
+        "https://purl.imsglobal.org/spec/lti/claim/message_type": "LtiDeepLinkingResponse",
+        "https://purl.imsglobal.org/spec/lti/claim/version": "1.3.0",
+        "https://purl.imsglobal.org/spec/lti/claim/deployment_id": config.get("deployment_id", ""),
+        "https://purl.imsglobal.org/spec/lti-dl/claim/content_items": content_items,
+    }
+    if dl_data:
+        claims["https://purl.imsglobal.org/spec/lti-dl/claim/data"] = dl_data
+    priv_pem = (KEYS_DIR / "private.pem").read_text()
+    signed_token = jwt.encode(claims, priv_pem, algorithm="RS256", headers={"kid": "lti-tester-key-1"})
+    return {"jwt": signed_token, "deep_link_return_url": return_url}
+
+
+@app.get("/api/ags/scopes/{launch_id}")
+async def api_ags_scopes(launch_id: str):
+    launch = get_launch_or_404(launch_id)
+    payload = launch.get("payload", {})
+    ags_claim = payload.get("https://purl.imsglobal.org/spec/lti-ags/claim/endpoint", {})
+    return {
+        "scopes": ags_claim.get("scope", []),
+        "lineitems": ags_claim.get("lineitems"),
+        "lineitem": ags_claim.get("lineitem"),
+    }
 
 
 # ── Static files ──────────────────────────────────────────────────────────────
