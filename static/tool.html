@@ -713,7 +713,7 @@ function sendDeepLink() {
   var wEl = document.getElementById('dl-width');
   if (wEl && wEl.value) item.iframe = { width: parseInt(wEl.value), height: parseInt(document.getElementById('dl-height').value || 600) };
 
-  apiFetch(BACKEND_URL + '/api/deep-link/respond', {
+  apiFetch(BACKEND_URL + '/api/deep-link/response', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ launch_id: launchData.id, content_items: [item] }),
