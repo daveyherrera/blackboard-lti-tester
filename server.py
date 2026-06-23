@@ -26,6 +26,8 @@ MAX_EXCHANGES = 300
 STATE_TTL = 300       # 5 minutes
 JWKS_CACHE_TTL = 3600 # 1 hour
 GITHUB_PAGES_URL = "https://daveyherrera.github.io/blackboard-lti-tester"
+_ngrok_domain = os.environ.get("NGROK_DOMAIN", "").strip()
+PUBLIC_BACKEND_URL = f"https://{_ngrok_domain}" if _ngrok_domain else "http://localhost:8080"
 
 DEFAULT_CONFIG = {
     "client_id": "",
@@ -634,7 +636,7 @@ async def lti_redirect(
 
     suffix = "" if is_valid else "&error=validation_failed"
     return RedirectResponse(
-        url=f"{GITHUB_PAGES_URL}/tool.html?launch={launch_id}{suffix}", status_code=302
+        url=f"{GITHUB_PAGES_URL}/tool.html?launch={launch_id}&backend={PUBLIC_BACKEND_URL}{suffix}", status_code=302
     )
 
 

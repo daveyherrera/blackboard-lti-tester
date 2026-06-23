@@ -272,10 +272,10 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 <div class="toast" id="toast"></div>
 
 <script>
-var BACKEND_URL = localStorage.getItem('lti_backend_url') || 'http://localhost:8080';
 var launchId = null;
 var launchData = null;
 var dlContentType = 'ltiResourceLink';
+var BACKEND_URL = 'http://localhost:8080'; // overridden by ?backend= param below
 
 // ── Init ──────────────────────────────────────────
 
@@ -283,6 +283,10 @@ window.addEventListener('DOMContentLoaded', function() {
   var params = new URLSearchParams(window.location.search);
   launchId = params.get('launch');
   var hasError = params.get('error');
+  // Use backend URL embedded by server in the redirect — falls back to localhost
+  if (params.get('backend')) {
+    BACKEND_URL = params.get('backend').replace(/\/$/, '');
+  }
 
   checkBackend();
   setInterval(checkBackend, 8000);
