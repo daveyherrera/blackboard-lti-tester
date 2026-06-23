@@ -713,7 +713,7 @@ function sendDeepLink() {
   var urlEl = document.getElementById('dl-url');
   if (urlEl && urlEl.value) item.url = urlEl.value;
   var descEl = document.getElementById('dl-desc');
-  if (descEl && descEl.value) item.description = descEl.value;
+  if (descEl && descEl.value) item.text = descEl.value;
   var customEl = document.getElementById('dl-custom');
   if (customEl && customEl.value) {
     var cp = {};
