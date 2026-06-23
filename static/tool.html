@@ -232,6 +232,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 }
 .status-ok { background: rgba(34,197,94,0.15); color: var(--success); }
 .status-err { background: rgba(239,68,68,0.15); color: var(--error); }
+.status-info { background: rgba(14,165,233,0.15); color: var(--accent); }
 .exch-url { flex: 1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .exch-dur { font-size: 10px; color: var(--dim); }
 .exch-body { display: none; padding: 10px; border-top: 1px solid var(--border); }
@@ -752,31 +753,38 @@ function renderExchanges(containerId, exchanges) {
   if (!el || !exchanges.length) { if (el) el.innerHTML = '<div style="color:var(--dim);font-size:11px">No exchanges recorded.</div>'; return; }
   var html = '';
   exchanges.forEach(function(ex, i) {
-    var method = ex.request_method || 'GET';
-    var status = ex.response_status || 0;
+    var req = ex.request || {};
+    var resp = ex.response || {};
+    var method = req.method || ex.request_method || 'GET';
+    var status = (resp.status !== undefined ? resp.status : ex.response_status) || 0;
     var isOk = status >= 200 && status < 300;
-    var url = ex.request_url || '';
+    var url = req.url || ex.request_url || '';
     var dur = ex.duration_ms ? Math.round(ex.duration_ms) + 'ms' : '';
     var exId = containerId + '-ex-' + i;
+    var reqHeaders = req.headers || ex.request_headers || {};
+    var reqBody = req.body || ex.request_body;
+    var respHeaders = resp.headers || ex.response_headers || {};
+    var respBody = resp.body || ex.response_body;
+    var statusLabel = status === 0 ? 'browser POST' : String(status);
     html += '<div class="exch-item">';
     html += '<div class="exch-item-hdr" onclick="toggleEx(\'' + exId + '\')">';
     html += '<span class="method-pill ' + esc(method) + '">' + esc(method) + '</span>';
-    html += '<span class="status-pill ' + (isOk?'status-ok':'status-err') + '">' + status + '</span>';
+    html += '<span class="status-pill ' + (status === 0 ? 'status-info' : isOk ? 'status-ok' : 'status-err') + '">' + esc(statusLabel) + '</span>';
     html += '<span class="exch-url" title="' + esc(url) + '">' + esc(url) + '</span>';
     html += '<span class="exch-dur">' + esc(dur) + '</span>';
     html += '</div>';
     html += '<div class="exch-body" id="' + exId + '">';
     html += '<div class="exch-section-label">Request Headers</div>';
-    html += '<div class="exch-pre">' + esc(JSON.stringify(ex.request_headers || {}, null, 2)) + '</div>';
-    if (ex.request_body) {
+    html += '<div class="exch-pre">' + esc(JSON.stringify(reqHeaders, null, 2)) + '</div>';
+    if (reqBody) {
       html += '<div class="exch-section-label">Request Body</div>';
-      html += '<div class="exch-pre">' + esc(typeof ex.request_body === 'string' ? ex.request_body : JSON.stringify(ex.request_body, null, 2)) + '</div>';
+      html += '<div class="exch-pre">' + esc(typeof reqBody === 'string' ? reqBody : JSON.stringify(reqBody, null, 2)) + '</div>';
     }
     html += '<div class="exch-section-label">Response Headers</div>';
-    html += '<div class="exch-pre">' + esc(JSON.stringify(ex.response_headers || {}, null, 2)) + '</div>';
-    if (ex.response_body) {
-      html += '<div class="exch-section-label">Response Body</div>';
-      html += '<div class="exch-pre">' + esc(typeof ex.response_body === 'string' ? ex.response_body : JSON.stringify(ex.response_body, null, 2)) + '</div>';
+    html += '<div class="exch-pre">' + esc(JSON.stringify(respHeaders, null, 2)) + '</div>';
+    if (respBody) {
+      html += '<div class="exch-section-label">Response Body / Note</div>';
+      html += '<div class="exch-pre">' + esc(typeof respBody === 'string' ? respBody : JSON.stringify(respBody, null, 2)) + '</div>';
     }
     html += '</div></div>';
   });
