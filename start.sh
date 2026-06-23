@@ -66,11 +66,14 @@ for i in {1..20}; do
 done
 echo ""
 
-# ── Load .env if present ─────────────────────────
-if [ -f ".env" ]; then
-  # shellcheck disable=SC1091
-  set -a; source .env; set +a
-fi
+# ── Load .env / .env.example if present ──────────
+for envfile in .env .env.example; do
+  if [ -f "$envfile" ]; then
+    # shellcheck disable=SC1090
+    set -a; source "$envfile"; set +a
+    break
+  fi
+done
 
 # ── Start ngrok ───────────────────────────────────
 echo "🔗 Starting ngrok tunnel..."
