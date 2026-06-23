@@ -720,6 +720,14 @@ function sendDeepLink() {
   var wEl = document.getElementById('dl-width');
   if (wEl && wEl.value) item.iframe = { width: parseInt(wEl.value), height: parseInt(document.getElementById('dl-height').value || 600) };
 
+  // Warn if deployment_id is missing from the launch — server echoes it back in the response JWT
+  var payload = launchData.payload || {};
+  var deploymentId = payload['https://purl.imsglobal.org/spec/lti/claim/deployment_id'] || '';
+  if (!deploymentId) {
+    resEl.innerHTML = '<div class="result-box result-err"><strong>Missing Deployment ID</strong><br>The incoming launch has no <code>deployment_id</code> claim — Blackboard will reject the response JWT.<br>Check that the placement is configured correctly in the Blackboard Developer Portal.</div>';
+    return;
+  }
+
   apiFetch(BACKEND_URL + '/api/deep-link/response', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -727,19 +735,32 @@ function sendDeepLink() {
   })
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (data.result && data.result.form_html) {
-        resEl.innerHTML = '<div class="result-box result-ok">Deep link response ready — posting form to Blackboard…</div>';
-        // Auto-submit the form
-        var div = document.createElement('div');
-        div.style.display = 'none';
-        div.innerHTML = data.result.form_html;
-        document.body.appendChild(div);
-        var form = div.querySelector('form');
-        if (form) form.submit();
-      } else {
-        resEl.innerHTML = '<div class="result-box ' + (data.result && !data.result.error ? 'result-ok' : 'result-err') + '">' + esc(JSON.stringify(data.result, null, 2)) + '</div>';
+      if (data.error) {
+        resEl.innerHTML = '<div class="result-box result-err">Server error: ' + esc(data.error) + '</div>';
+        renderExchanges('dl-exchanges', data.exchanges || []);
+        return;
       }
+      var jwt = data.jwt;
+      var returnUrl = data.deep_link_return_url;
+      if (!jwt || !returnUrl) {
+        resEl.innerHTML = '<div class="result-box result-err">Missing JWT or deep_link_return_url in server response.</div>';
+        renderExchanges('dl-exchanges', data.exchanges || []);
+        return;
+      }
+      resEl.innerHTML = '<div class="result-box result-ok">JWT signed — submitting form to Blackboard…</div>';
       renderExchanges('dl-exchanges', data.exchanges || []);
+      // Build and auto-submit form to Blackboard's deep_link_return_url
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = returnUrl;
+      form.style.display = 'none';
+      var input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'JWT';
+      input.value = jwt;
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
     })
     .catch(function(e) {
       resEl.innerHTML = '<div class="result-box result-err">Error: ' + esc(String(e)) + '</div>';

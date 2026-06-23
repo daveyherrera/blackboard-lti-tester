@@ -999,7 +999,7 @@ async def api_deep_link_response(request: Request):
         "nonce": secrets.token_urlsafe(16),
         "https://purl.imsglobal.org/spec/lti/claim/message_type": "LtiDeepLinkingResponse",
         "https://purl.imsglobal.org/spec/lti/claim/version": "1.3.0",
-        "https://purl.imsglobal.org/spec/lti/claim/deployment_id": config.get("deployment_id", ""),
+        "https://purl.imsglobal.org/spec/lti/claim/deployment_id": payload.get("https://purl.imsglobal.org/spec/lti/claim/deployment_id", config.get("deployment_id", "")),
         "https://purl.imsglobal.org/spec/lti-dl/claim/content_items": content_items,
     }
     if dl_data:
