@@ -289,9 +289,12 @@ window.addEventListener('DOMContentLoaded', function() {
   var params = new URLSearchParams(window.location.search);
   launchId = params.get('launch');
   var hasError = params.get('error');
-  // Use backend URL embedded by server in the redirect — falls back to localhost
+  // Priority: ?backend= from server redirect > saved manual entry > localhost
   if (params.get('backend')) {
     BACKEND_URL = params.get('backend').replace(/\/$/, '');
+    localStorage.setItem('lti_tool_backend_url', BACKEND_URL);
+  } else if (localStorage.getItem('lti_tool_backend_url')) {
+    BACKEND_URL = localStorage.getItem('lti_tool_backend_url');
   }
 
   // Show which backend we resolved — helps debug connection issues
@@ -313,24 +316,50 @@ function checkBackend() {
     .then(function(r) { return r.json(); })
     .then(function() {
       document.getElementById('status-dot').className = 'status-dot ok';
-      document.getElementById('status-text').textContent = 'Connected';
+      document.getElementById('status-text').textContent = 'Connected · ' + BACKEND_URL;
+      // Retry loading launch if it failed before
+      if (launchId && !launchData) loadLaunch(launchId);
     })
     .catch(function() {
       document.getElementById('status-dot').className = 'status-dot';
       document.getElementById('status-text').textContent = 'Disconnected';
+      if (launchId && !launchData) showConnectionError();
     });
 }
 
-function loadLaunch(id, hasError) {
+function showConnectionError() {
+  var saved = localStorage.getItem('lti_tool_backend_url') || '';
+  document.getElementById('main').innerHTML =
+    '<div style="max-width:480px;margin:40px auto;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px">'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:6px">⚠ Cannot reach backend</div>'
+    + '<div style="font-size:12px;color:var(--muted);margin-bottom:16px">Trying: <code style="color:var(--accent)">' + esc(BACKEND_URL) + '</code></div>'
+    + '<div style="font-size:12px;color:var(--dim);margin-bottom:16px">Make sure <code>./start.sh</code> is running on your machine. If you are testing from a different device, enter your ngrok URL below.</div>'
+    + '<div style="display:flex;gap:8px">'
+    + '<input id="manual-backend" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 10px;font-size:13px;font-family:inherit" placeholder="https://your-domain.ngrok-free.app" value="' + esc(saved) + '">'
+    + '<button class="btn btn-primary" onclick="applyManualBackend()">Connect</button>'
+    + '</div>'
+    + '</div>';
+}
+
+function applyManualBackend() {
+  var val = (document.getElementById('manual-backend').value || '').trim().replace(/\/$/, '');
+  if (!val) return;
+  BACKEND_URL = val;
+  localStorage.setItem('lti_tool_backend_url', val);
+  document.getElementById('main').innerHTML = '<div class="empty-state">Connecting…</div>';
+  checkBackend();
+  if (launchId) loadLaunch(launchId);
+}
+
+function loadLaunch(id) {
   apiFetch(BACKEND_URL + '/api/launches/' + id)
     .then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then(function(data) {
       launchData = data;
       renderTool();
     })
-    .catch(function(e) {
-      document.getElementById('main').innerHTML =
-        '<div class="empty-state">Could not load launch <code>' + esc(id) + '</code>.<br>Make sure the backend is running and you launched from Blackboard.</div>';
+    .catch(function() {
+      if (!launchData) showConnectionError();
     });
 }
 
