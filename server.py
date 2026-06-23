@@ -575,7 +575,7 @@ async def lti_redirect(
         if len(launches) > MAX_LAUNCHES:
             launches.pop()
         return RedirectResponse(
-            url=f"{GITHUB_PAGES_URL}/?launch={launch_id}&error=invalid_state",
+            url=f"{PUBLIC_BACKEND_URL}/static/tool.html?launch={launch_id}&error=invalid_state",
             status_code=302,
         )
 
@@ -640,7 +640,7 @@ async def lti_redirect(
 
     suffix = "" if is_valid else "&error=validation_failed"
     return RedirectResponse(
-        url=f"{GITHUB_PAGES_URL}/tool.html?launch={launch_id}&backend={PUBLIC_BACKEND_URL}{suffix}", status_code=302
+        url=f"{PUBLIC_BACKEND_URL}/static/tool.html?launch={launch_id}&backend={PUBLIC_BACKEND_URL}{suffix}", status_code=302
     )
 
 
