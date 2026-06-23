@@ -576,6 +576,11 @@ function getLtiErrorHint(errorMsg, payload) {
       what: 'The JWT <code>kid</code> doesn\'t match any key in Blackboard\'s JWKS — likely a key rotation.',
       fix: 'Restart <code>./start.sh</code> to clear the local JWKS cache, then relaunch.'
     },
+    {
+      match: /placement.*deleted|corresponding placement/i,
+      what: 'Blackboard accepted the deep link JWT but cannot resolve the <code>url</code> in the content item back to a registered placement. This happens when an external URL (e.g. google.com) is used as the Target Link URI in an <strong>LTI Resource Link</strong> content item.',
+      fix: 'The Target Link URI for an LTI Resource Link must be the tool\'s own OIDC login URL (e.g. <code>https://cute-calm-trout.ngrok-free.app/oidc-login</code>). Use the <strong>External URL</strong> content type instead if you want to link to a web page.'
+    },
   ];
   for (var i = 0; i < hints.length; i++) {
     if (hints[i].match.test(errorMsg)) return hints[i];
@@ -676,13 +681,18 @@ function renderDlFields() {
   if (!el) return;
   var html = '';
   if (dlContentType === 'ltiResourceLink') {
+    var toolUrl = BACKEND_URL + '/oidc-login';
     html += '<div class="form-row"><label>Title</label><input type="text" id="dl-title" placeholder="My LTI Resource"></div>';
     html += '<div class="form-row"><label>Description (optional)</label><input type="text" id="dl-desc" placeholder=""></div>';
-    html += '<div class="form-row"><label>Target Link URI</label><input type="text" id="dl-url" placeholder="https://..."></div>';
+    html += '<div class="form-row">';
+    html += '<label>Target Link URI <span style="color:var(--accent);font-size:11px;font-weight:400">— must be this tool\'s own launch URL</span></label>';
+    html += '<input type="text" id="dl-url" value="' + esc(toolUrl) + '">';
+    html += '<div style="font-size:11px;color:var(--dim);margin-top:4px">⚠ Do NOT use an external URL here (e.g. google.com). Blackboard maps this URI back to a registered placement — any other URL creates a broken link with "placement has been deleted".</div>';
+    html += '</div>';
     html += '<div class="form-row"><label>Custom Params (key=value, one per line)</label><input type="text" id="dl-custom" placeholder="param1=value1"></div>';
   } else if (dlContentType === 'link') {
     html += '<div class="form-row"><label>Title</label><input type="text" id="dl-title" placeholder="External Resource"></div>';
-    html += '<div class="form-row"><label>URL</label><input type="text" id="dl-url" placeholder="https://..."></div>';
+    html += '<div class="form-row"><label>URL <span style="color:var(--accent);font-size:11px;font-weight:400">— any web URL, not an LTI launch</span></label><input type="text" id="dl-url" placeholder="https://example.com"></div>';
     html += '<div class="form-row"><label>Icon URL (optional)</label><input type="text" id="dl-icon" placeholder="https://..."></div>';
   } else if (dlContentType === 'html') {
     html += '<div class="form-row"><label>Title</label><input type="text" id="dl-title" placeholder="HTML Embed"></div>';
