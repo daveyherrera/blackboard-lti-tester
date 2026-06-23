@@ -1509,7 +1509,16 @@ function fetchLaunches() {
   apiFetch(getBackendUrl() + '/api/launches')
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      launchesData = data;
+      // Preserve detailed fields (raw_token, payload, header) loaded by toggleLaunch
+      var prevById = {};
+      launchesData.forEach(function(l) { prevById[l.id] = l; });
+      launchesData = data.map(function(l) {
+        var prev = prevById[l.id];
+        if (prev && prev.raw_token !== undefined) {
+          return Object.assign({}, l, { raw_token: prev.raw_token, payload: prev.payload, header: prev.header });
+        }
+        return l;
+      });
       renderLaunches();
       // Update nav badge
       var nb = document.getElementById('nav-launch-count');
