@@ -1184,11 +1184,11 @@ nav { flex: 1; padding: 10px 8px; }
     <div class="card" style="margin-top:16px">
       <div class="card-title"><span class="icon">🌐</span> Backend Connection</div>
       <div class="form-group">
-        <label class="form-label">Backend URL</label>
-        <input class="form-input" id="cfg-backend-url" type="text" placeholder="http://localhost:8080">
-        <div class="form-hint">Stored in your browser (localStorage). Change if running on a different port or host.</div>
+        <label class="form-label">ngrok / Backend URL</label>
+        <input class="form-input" id="cfg-backend-url" type="text" placeholder="https://your-domain.ngrok-free.app">
+        <div class="form-hint">Used by both the Inspector and the Tool View. Set this to your ngrok URL so the Tool View connects automatically without prompting.</div>
       </div>
-      <button class="btn btn-ghost" onclick="saveBackendUrl()">Update Backend URL</button>
+      <button class="btn btn-ghost" onclick="saveBackendUrl()">Save</button>
     </div>
   </div>
 
@@ -1341,6 +1341,7 @@ function saveBackendUrl() {
   var val = document.getElementById('cfg-backend-url').value.trim().replace(/\/$/, '');
   if (!val) { showToast('Backend URL cannot be empty', 'error'); return; }
   localStorage.setItem('bb_lti_backend_url', val);
+  localStorage.setItem('lti_tool_backend_url', val); // shared with tool.html
   showToast('Backend URL updated', 'success');
   pollStatus();
 }
