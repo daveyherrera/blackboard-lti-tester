@@ -32,8 +32,9 @@ PUBLIC_BACKEND_URL = f"https://{_ngrok_domain}" if _ngrok_domain else "http://lo
 DEFAULT_CONFIG = {
     "client_id": "",
     "deployment_id": "",
+    # These Blackboard values are constants — same for every deployment
     "oidc_auth_url": "https://developer.blackboard.com/api/v1/gateway/oidcauth",
-    "jwks_url": "https://developer.blackboard.com/api/v1/management/applications/keys",
+    "jwks_url": "https://developer.blackboard.com/.well-known/jwks.json",
     "issuer": "https://blackboard.com",
     "token_url": "https://developer.blackboard.com/api/v1/gateway/oauth2/jwttoken",
 }

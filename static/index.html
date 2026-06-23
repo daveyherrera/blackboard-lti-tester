@@ -1154,24 +1154,31 @@ nav { flex: 1; padding: 10px 8px; }
         <div class="form-hint">Application ID from the Blackboard Developer Portal</div>
       </div>
       <div class="form-group">
-        <label class="form-label">OIDC Auth URL</label>
-        <input class="form-input" id="cfg-oidc-url" type="text" placeholder="https://developer.blackboard.com/api/v1/gateway/oidcauth">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Blackboard JWKS URL</label>
-        <input class="form-input" id="cfg-jwks-url" type="text" placeholder="https://developer.blackboard.com/api/v1/management/applications/keys">
-        <div class="form-hint">Used to verify Blackboard's JWT signatures</div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Issuer</label>
-        <input class="form-input" id="cfg-issuer" type="text" readonly value="https://blackboard.com">
-        <div class="form-hint">Fixed — Blackboard always uses this issuer</div>
-      </div>
-      <div class="form-group">
         <label class="form-label">Deployment ID</label>
         <input class="form-input" id="cfg-deployment-id" type="text" placeholder="Optional — from Learn admin registration">
       </div>
       <button class="btn btn-primary" onclick="saveConfig()">Save Settings</button>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title"><span class="icon">🔒</span> Blackboard Platform Constants</div>
+      <div class="form-hint" style="margin-bottom:12px">These values are the same for every Blackboard deployment and cannot be changed.</div>
+      <div class="form-group">
+        <label class="form-label">Issuer</label>
+        <input class="form-input" id="cfg-issuer" type="text" readonly value="https://blackboard.com" style="opacity:0.6;cursor:default">
+      </div>
+      <div class="form-group">
+        <label class="form-label">OIDC Auth URL</label>
+        <input class="form-input" id="cfg-oidc-url" type="text" readonly value="https://developer.blackboard.com/api/v1/gateway/oidcauth" style="opacity:0.6;cursor:default">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Public Keyset URL (JWKS)</label>
+        <input class="form-input" id="cfg-jwks-url" type="text" readonly value="https://developer.blackboard.com/.well-known/jwks.json" style="opacity:0.6;cursor:default">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Auth Token Endpoint</label>
+        <input class="form-input" type="text" readonly value="https://developer.blackboard.com/api/v1/gateway/oauth2/jwttoken" style="opacity:0.6;cursor:default">
+      </div>
     </div>
 
     <div class="card" style="margin-top:16px">
