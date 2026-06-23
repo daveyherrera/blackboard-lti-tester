@@ -1628,7 +1628,12 @@ function renderJwtInspector(launch) {
   var html = '<div class="jwt-inspector open">';
 
   if (!launch.valid && launch.validation_error) {
-    html += '<div class="error-banner">Validation error: ' + esc(launch.validation_error) + '</div>';
+    var hint = getLtiErrorHint(launch.validation_error);
+    html += '<div class="error-banner">'
+      + '<div style="font-weight:700;margin-bottom:4px">⚠ Validation error</div>'
+      + '<div style="margin-bottom:' + (hint ? '8px' : '0') + '">' + esc(launch.validation_error) + '</div>'
+      + (hint ? '<div style="background:rgba(0,0,0,0.25);border-radius:5px;padding:8px 10px;font-size:11px;line-height:1.6"><strong>What this means:</strong> ' + hint.what + '<br><strong>How to fix:</strong> ' + hint.fix + '</div>' : '')
+      + '</div>';
   }
 
   // LTI Lab callout
@@ -1807,6 +1812,64 @@ function renderJwtDecoded(raw) {
     + '<div class="jwt-part-payload"><div class="jwt-decoded-label">Payload</div><div class="jwt-decoded-part">' + (pld ? colorizeJson(pld) : esc(parts[1])) + '</div></div>'
     + '<div class="jwt-part-sig"><div class="jwt-decoded-label">Signature</div><div class="jwt-decoded-part" style="font-size:11px;word-break:break-all;opacity:0.7"><span class="jwt-dot-sig">' + esc(sigSnippet) + '</span></div></div>'
     + '</div>';
+}
+
+// ── LTI error hint dictionary ─────────────────────────────────────────────
+
+var LTI_ERROR_HINTS = [
+  {
+    match: /invalid audience/i,
+    what: 'The JWT <code>aud</code> claim contains the Application Key that Blackboard thinks your tool has, but it does not match the Application Key saved in Settings.',
+    fix: 'Open Settings → LTI Registration. Copy the <strong>Application Key</strong> exactly from the Blackboard Developer Portal (it\'s a UUID like <code>a1b2c3d4-…</code>) and save.'
+  },
+  {
+    match: /cannot fetch.*jwks|check jwks url/i,
+    what: 'The server could not reach Blackboard\'s public key endpoint to verify the JWT signature. The JWT payload is shown unverified.',
+    fix: 'Check your internet connection from the machine running <code>./start.sh</code>. The JWKS URL should be <code>https://developer.blackboard.com/.well-known/jwks.json</code> — confirm it in Settings → Blackboard Platform Constants.'
+  },
+  {
+    match: /nonce mismatch/i,
+    what: 'The <code>nonce</code> in the JWT does not match the one this tool generated during the OIDC login initiation. This can indicate a replay attack or a stale login flow.',
+    fix: 'Close the tool in Blackboard and reopen it — this starts a fresh OIDC flow with a new nonce. If it keeps happening, check that your system clock is accurate.'
+  },
+  {
+    match: /signature.*verif|verif.*signature/i,
+    what: 'The JWT cryptographic signature is invalid. Blackboard signed the token with a key that does not match any key in its JWKS endpoint.',
+    fix: 'This is usually a key rotation lag. Wait 60 seconds and try launching again. If it persists, confirm the JWKS URL in Settings matches the Developer Portal (<code>/.well-known/jwks.json</code>).'
+  },
+  {
+    match: /expired|exp claim/i,
+    what: 'The JWT <code>exp</code> (expiration) claim is in the past. LTI tokens are only valid for a few minutes after issue.',
+    fix: 'Your machine\'s clock may be skewed. Sync it with an NTP server. Also make sure you are not replaying an old id_token.'
+  },
+  {
+    match: /invalid state|state.*not found|unknown state/i,
+    what: 'The <code>state</code> parameter returned by Blackboard does not match any pending OIDC login this server initiated. The login attempt was abandoned or expired.',
+    fix: 'The OIDC state expires in 5 minutes. Launch the tool fresh from Blackboard without navigating away in between. If using multiple browser tabs, each tab\'s state is independent.'
+  },
+  {
+    match: /invalid issuer|iss.*mismatch/i,
+    what: 'The JWT <code>iss</code> (issuer) claim does not equal <code>https://blackboard.com</code>.',
+    fix: 'Confirm the Issuer in Settings → Blackboard Platform Constants is <code>https://blackboard.com</code>. If you are connecting to a self-hosted Blackboard instance, the issuer may differ — check with your admin.'
+  },
+  {
+    match: /deployment.?id/i,
+    what: 'The <code>deployment_id</code> claim in the JWT does not match the one configured in Settings.',
+    fix: 'In Blackboard Learn Admin → LTI Tool Providers, open your registration and copy the Deployment ID. Paste it into Settings → Deployment ID.'
+  },
+  {
+    match: /no.*kid|key.*not found|unknown kid/i,
+    what: 'The JWT header contains a <code>kid</code> (key ID) that does not exist in Blackboard\'s JWKS. This happens when Blackboard rotates its signing keys.',
+    fix: 'Blackboard\'s JWKS cache refreshes hourly. Restart <code>./start.sh</code> to clear the local JWKS cache and try launching again.'
+  },
+];
+
+function getLtiErrorHint(errorMsg) {
+  if (!errorMsg) return null;
+  for (var i = 0; i < LTI_ERROR_HINTS.length; i++) {
+    if (LTI_ERROR_HINTS[i].match.test(errorMsg)) return LTI_ERROR_HINTS[i];
+  }
+  return null;
 }
 
 function renderSection(title, content) {

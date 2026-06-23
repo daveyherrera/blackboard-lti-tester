@@ -294,6 +294,9 @@ window.addEventListener('DOMContentLoaded', function() {
     BACKEND_URL = params.get('backend').replace(/\/$/, '');
   }
 
+  // Show which backend we resolved — helps debug connection issues
+  document.getElementById('status-text').textContent = 'Connecting to ' + BACKEND_URL + '…';
+
   checkBackend();
   setInterval(checkBackend, 8000);
 
