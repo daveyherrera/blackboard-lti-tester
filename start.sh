@@ -46,6 +46,15 @@ pip install -q -r requirements.txt
 echo -e "${G}✓${N} Dependencies ready"
 echo ""
 
+# ── Load .env / .env.example if present ──────────
+for envfile in .env .env.example; do
+  if [ -f "$envfile" ]; then
+    # shellcheck disable=SC1090
+    set -a; source "$envfile"; set +a
+    break
+  fi
+done
+
 # ── Kill any existing processes ───────────────────
 lsof -ti:8080 2>/dev/null | xargs kill -9 2>/dev/null || true
 pkill -f "ngrok http 8080" 2>/dev/null || true
@@ -65,15 +74,6 @@ for i in {1..20}; do
   sleep 0.5
 done
 echo ""
-
-# ── Load .env / .env.example if present ──────────
-for envfile in .env .env.example; do
-  if [ -f "$envfile" ]; then
-    # shellcheck disable=SC1090
-    set -a; source "$envfile"; set +a
-    break
-  fi
-done
 
 # ── Start ngrok ───────────────────────────────────
 echo "🔗 Starting ngrok tunnel..."
