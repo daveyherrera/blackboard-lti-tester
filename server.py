@@ -260,6 +260,9 @@ async def get_ngrok_url() -> Optional[str]:
             https = next(
                 (t["public_url"] for t in tunnels if t["proto"] == "https"), None
             )
+            # Static domains don't appear in tunnels API — fall back to known domain
+            if not https and _ngrok_domain and r.status_code == 200:
+                return f"https://{_ngrok_domain}"
             return https
     except Exception:
         return None
