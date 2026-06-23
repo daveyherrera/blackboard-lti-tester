@@ -297,18 +297,24 @@ window.addEventListener('DOMContentLoaded', function() {
     BACKEND_URL = localStorage.getItem('lti_tool_backend_url');
   }
 
-  // Show which backend we resolved — helps debug connection issues
-  document.getElementById('status-text').textContent = 'Connecting to ' + BACKEND_URL + '…';
-
-  checkBackend();
-  setInterval(checkBackend, 8000);
-
   if (!launchId) {
     document.getElementById('main').innerHTML = '<div class="empty-state">No launch ID in URL. Launch this tool from within Blackboard Learn.</div>';
     return;
   }
 
-  loadLaunch(launchId, hasError);
+  // On HTTPS pages (GitHub Pages), localhost will never be reachable —
+  // skip the attempt entirely and ask for the ngrok URL right away.
+  var onHttps = window.location.protocol === 'https:';
+  if (onHttps && BACKEND_URL === 'http://localhost:8080') {
+    document.getElementById('status-text').textContent = 'Disconnected';
+    showConnectionError();
+    return;
+  }
+
+  document.getElementById('status-text').textContent = 'Connecting to ' + BACKEND_URL + '…';
+  checkBackend();
+  setInterval(checkBackend, 8000);
+  loadLaunch(launchId);
 });
 
 function checkBackend() {
