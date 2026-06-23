@@ -86,12 +86,24 @@ eval "$NGROK_CMD" > /tmp/bb-lti-ngrok.log 2>&1 &
 NGROK_PID=$!
 
 NGROK_URL=""
-for i in {1..30}; do
-  NGROK_URL=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null \
-    | python3 -c "import sys,json; d=json.load(sys.stdin); print(next((t['public_url'] for t in d.get('tunnels',[]) if t['proto']=='https'),''))" 2>/dev/null || echo "")
-  [ -n "$NGROK_URL" ] && break
-  sleep 0.5
-done
+if [ -n "${NGROK_DOMAIN:-}" ]; then
+  # Static domain — URL is known, just wait for ngrok to confirm it's up
+  NGROK_URL="https://$NGROK_DOMAIN"
+  for i in {1..30}; do
+    STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:4040/api/tunnels" 2>/dev/null || echo "000")
+    [ "$STATUS" = "200" ] && break
+    sleep 0.5
+  done
+  if [ "$STATUS" != "200" ]; then NGROK_URL=""; fi
+else
+  # Dynamic domain — poll until ngrok reports the HTTPS URL
+  for i in {1..30}; do
+    NGROK_URL=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null \
+      | python3 -c "import sys,json; d=json.load(sys.stdin); print(next((t['public_url'] for t in d.get('tunnels',[]) if t['proto']=='https'),''))" 2>/dev/null || echo "")
+    [ -n "$NGROK_URL" ] && break
+    sleep 0.5
+  done
+fi
 
 if [ -n "$NGROK_URL" ]; then
   echo -e "${G}✓${N} ngrok tunnel: $NGROK_URL"
