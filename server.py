@@ -2,7 +2,7 @@
 BB LTI 1.3 Tester — FastAPI backend
 """
 from __future__ import annotations
-import asyncio, json, secrets, time, uuid
+import asyncio, json, os, secrets, time, uuid
 from pathlib import Path
 from typing import Optional
 
