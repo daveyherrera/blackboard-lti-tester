@@ -1324,6 +1324,12 @@ function getBackendUrl() {
   return (localStorage.getItem('bb_lti_backend_url') || 'http://localhost:8080').replace(/\/$/, '');
 }
 
+function apiFetch(url, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({ 'ngrok-skip-browser-warning': 'true' }, opts.headers || {});
+  return fetch(url, opts);
+}
+
 function saveBackendUrl() {
   var val = document.getElementById('cfg-backend-url').value.trim().replace(/\/$/, '');
   if (!val) { showToast('Backend URL cannot be empty', 'error'); return; }
@@ -1355,7 +1361,7 @@ function navigate(page) {
 // ── Status polling ─────────────────────────────────────────────────────────
 
 function pollStatus() {
-  fetch(getBackendUrl() + '/api/status')
+  apiFetch(getBackendUrl() + '/api/status')
     .then(function(r) { return r.json(); })
     .then(function(d) {
       statusData = d;
@@ -1492,7 +1498,7 @@ function stopLaunchesPolling() {
 }
 
 function fetchLaunches() {
-  fetch(getBackendUrl() + '/api/launches')
+  apiFetch(getBackendUrl() + '/api/launches')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       launchesData = data;
@@ -1511,7 +1517,7 @@ function fetchLaunches() {
 }
 
 function clearLaunches() {
-  fetch(getBackendUrl() + '/api/launches', { method: 'DELETE' })
+  apiFetch(getBackendUrl() + '/api/launches', { method: 'DELETE' })
     .then(function() {
       launchesData = [];
       expandedLaunches.clear();
@@ -1596,7 +1602,7 @@ function toggleLaunch(id) {
     // Fetch full detail if not already loaded
     var existing = launchesData.find(function(l) { return l.id === id; });
     if (existing && existing.raw_token === undefined) {
-      fetch(getBackendUrl() + '/api/launches/' + id)
+      apiFetch(getBackendUrl() + '/api/launches/' + id)
         .then(function(r) { return r.json(); })
         .then(function(d) {
           var idx = launchesData.findIndex(function(l) { return l.id === id; });
@@ -1856,7 +1862,7 @@ function toggleStep(header) {
 
 function loadSettingsForm() {
   document.getElementById('cfg-backend-url').value = getBackendUrl();
-  fetch(getBackendUrl() + '/api/config')
+  apiFetch(getBackendUrl() + '/api/config')
     .then(function(r) { return r.json(); })
     .then(function(d) {
       document.getElementById('cfg-client-id').value = d.client_id || '';
@@ -1876,7 +1882,7 @@ function saveConfig() {
     issuer: document.getElementById('cfg-issuer').value.trim(),
     deployment_id: document.getElementById('cfg-deployment-id').value.trim(),
   };
-  fetch(getBackendUrl() + '/api/config', {
+  apiFetch(getBackendUrl() + '/api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -1928,7 +1934,7 @@ function handleUrlParams() {
     expandedLaunches.add(launchId);
     navigate('launches');
     // Fetch full detail immediately
-    fetch(getBackendUrl() + '/api/launches/' + launchId)
+    apiFetch(getBackendUrl() + '/api/launches/' + launchId)
       .then(function(r) { return r.json(); })
       .then(function(d) {
         // Merge into data
@@ -2030,7 +2036,7 @@ var httpLogData = [];
 var httpLogFilterType = 'all';
 
 function refreshHttpLog() {
-  fetch(getBackendUrl() + '/api/exchanges')
+  apiFetch(getBackendUrl() + '/api/exchanges')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       httpLogData = data;
@@ -2047,7 +2053,7 @@ function refreshHttpLog() {
 }
 
 function clearHttpLog() {
-  fetch(getBackendUrl() + '/api/exchanges', { method: 'DELETE' })
+  apiFetch(getBackendUrl() + '/api/exchanges', { method: 'DELETE' })
     .then(function() {
       httpLogData = [];
       renderHttpLogPage();
@@ -2354,7 +2360,7 @@ async function fetchLineitems() {
   el.innerHTML = '<div style="color:var(--dim)">Loading…</div>';
   if (exEl) exEl.innerHTML = '';
   try {
-    var r = await fetch(getBackendUrl() + '/api/ags/lineitems', {
+    var r = await apiFetch(getBackendUrl() + '/api/ags/lineitems', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ launch_id: launchId }),
@@ -2411,7 +2417,7 @@ async function createLineitem() {
     tag: document.getElementById('li-tag').value,
   };
   try {
-    var r = await fetch(getBackendUrl() + '/api/ags/create-lineitem', {
+    var r = await apiFetch(getBackendUrl() + '/api/ags/create-lineitem', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -2441,7 +2447,7 @@ async function submitScore() {
   el.innerHTML = '<span style="color:var(--muted)">Submitting…</span>';
   if (exEl) exEl.innerHTML = '';
   try {
-    var r = await fetch(getBackendUrl() + '/api/ags/scores', {
+    var r = await apiFetch(getBackendUrl() + '/api/ags/scores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -2462,7 +2468,7 @@ async function fetchResults() {
   el.innerHTML = '<div style="color:var(--dim)">Loading…</div>';
   if (exEl) exEl.innerHTML = '';
   try {
-    var r = await fetch(getBackendUrl() + '/api/ags/results', {
+    var r = await apiFetch(getBackendUrl() + '/api/ags/results', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ launch_id: document.getElementById('ags-launch-select').value, lineitem_url: url }),
@@ -2491,7 +2497,7 @@ async function fetchRoster() {
   el.innerHTML = '<div style="color:var(--dim)">Loading roster…</div>';
   if (exEl) exEl.innerHTML = '';
   try {
-    var r = await fetch(getBackendUrl() + '/api/nrps/memberships', {
+    var r = await apiFetch(getBackendUrl() + '/api/nrps/memberships', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ launch_id: launchId }),

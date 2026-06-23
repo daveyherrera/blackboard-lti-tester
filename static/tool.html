@@ -277,6 +277,12 @@ var launchData = null;
 var dlContentType = 'ltiResourceLink';
 var BACKEND_URL = 'http://localhost:8080'; // overridden by ?backend= param below
 
+function apiFetch(url, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({ 'ngrok-skip-browser-warning': 'true' }, opts.headers || {});
+  return fetch(url, opts);
+}
+
 // ── Init ──────────────────────────────────────────
 
 window.addEventListener('DOMContentLoaded', function() {
@@ -300,7 +306,7 @@ window.addEventListener('DOMContentLoaded', function() {
 });
 
 function checkBackend() {
-  fetch(BACKEND_URL + '/api/health')
+  apiFetch(BACKEND_URL + '/api/health')
     .then(function(r) { return r.json(); })
     .then(function() {
       document.getElementById('status-dot').className = 'status-dot ok';
@@ -313,7 +319,7 @@ function checkBackend() {
 }
 
 function loadLaunch(id, hasError) {
-  fetch(BACKEND_URL + '/api/launches/' + id)
+  apiFetch(BACKEND_URL + '/api/launches/' + id)
     .then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then(function(data) {
       launchData = data;
@@ -505,7 +511,7 @@ function submitGrade() {
     activity_progress: activity,
     grading_progress: grading,
   };
-  fetch(BACKEND_URL + '/api/ags/score', {
+  apiFetch(BACKEND_URL + '/api/ags/score', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(body),
@@ -532,7 +538,7 @@ function fetchRoster() {
   var body = { launch_id: launchData.id };
   if (role) body.role = role;
   if (limit) body.limit = parseInt(limit);
-  fetch(BACKEND_URL + '/api/nrps/members', {
+  apiFetch(BACKEND_URL + '/api/nrps/members', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(body),
@@ -620,7 +626,7 @@ function sendDeepLink() {
   var wEl = document.getElementById('dl-width');
   if (wEl && wEl.value) item.iframe = { width: parseInt(wEl.value), height: parseInt(document.getElementById('dl-height').value || 600) };
 
-  fetch(BACKEND_URL + '/api/deep-link/respond', {
+  apiFetch(BACKEND_URL + '/api/deep-link/respond', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ launch_id: launchData.id, content_items: [item] }),
