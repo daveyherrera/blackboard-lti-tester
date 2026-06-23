@@ -399,7 +399,11 @@ function renderTool() {
   html += metaItem('Roles', roles.length ? roles.map(function(r){return '<span class="badge badge-regular" style="font-size:10px">'+esc(r)+'</span>';}).join(' ') : '—');
   html += '</div>';
   if (!d.valid && d.validation_error) {
-    html += '<div class="error-msg">⚠ ' + esc(d.validation_error) + '</div>';
+    var hint = getLtiErrorHint(d.validation_error, payload);
+    html += '<div class="error-msg" style="padding:10px 14px">'
+      + '<div style="font-weight:700;margin-bottom:4px">⚠ ' + esc(d.validation_error) + '</div>'
+      + (hint ? '<div style="margin-top:6px;font-size:11px;line-height:1.7;opacity:0.9"><strong>What this means:</strong> ' + hint.what + '<br><strong>How to fix:</strong> ' + hint.fix + '</div>' : '')
+      + '</div>';
   }
   html += '</div>';
 
@@ -519,6 +523,57 @@ function renderTool() {
 
   document.getElementById('main').innerHTML = html;
   if (isDl) renderDlFields();
+}
+
+function getLtiErrorHint(errorMsg, payload) {
+  payload = payload || {};
+  var aud = payload.aud ? (Array.isArray(payload.aud) ? payload.aud[0] : payload.aud) : null;
+  var hints = [
+    {
+      match: /invalid audience/i,
+      what: 'The JWT <code>aud</code> claim sent by Blackboard is <strong><code>' + esc(aud || '(not found in token)') + '</code></strong>, but your Settings have a different (or empty) Application Key.',
+      fix: 'Go to the <strong>BB LTI Inspector → Settings</strong> and paste <strong><code>' + esc(aud || '(see aud claim above)') + '</code></strong> into the Application Key field, then save.'
+    },
+    {
+      match: /cannot fetch.*jwks|check jwks url/i,
+      what: 'The backend could not reach Blackboard\'s public key endpoint to verify the JWT signature. The payload is shown unverified.',
+      fix: 'Check internet connectivity from the machine running <code>./start.sh</code>. The JWKS URL must be <code>https://developer.blackboard.com/.well-known/jwks.json</code>.'
+    },
+    {
+      match: /nonce mismatch/i,
+      what: 'The <code>nonce</code> in the JWT does not match the one generated during OIDC login. This can happen with stale or replayed flows.',
+      fix: 'Close the tool in Blackboard and reopen it to start a fresh OIDC flow. Ensure your system clock is accurate.'
+    },
+    {
+      match: /signature.*verif|verif.*signature/i,
+      what: 'The JWT cryptographic signature is invalid — the signing key doesn\'t match Blackboard\'s JWKS.',
+      fix: 'Key rotation lag. Wait 60 s and relaunch. If it persists, confirm the JWKS URL is <code>https://developer.blackboard.com/.well-known/jwks.json</code>.'
+    },
+    {
+      match: /expired|exp claim/i,
+      what: 'The JWT <code>exp</code> claim is in the past — LTI tokens are valid for only a few minutes.',
+      fix: 'Sync your machine\'s clock with NTP. Do not replay old tokens.'
+    },
+    {
+      match: /invalid state|state.*not found/i,
+      what: 'The OIDC <code>state</code> parameter doesn\'t match any pending login. The flow expired or was abandoned.',
+      fix: 'Launch the tool fresh from Blackboard without navigating away. OIDC state expires in 5 minutes.'
+    },
+    {
+      match: /invalid issuer|iss.*mismatch/i,
+      what: 'The JWT <code>iss</code> claim doesn\'t equal <code>https://blackboard.com</code>.',
+      fix: 'Confirm the Issuer in Settings is <code>https://blackboard.com</code>. Self-hosted Blackboard instances may use a different issuer — check with your admin.'
+    },
+    {
+      match: /no.*kid|key.*not found|unknown kid/i,
+      what: 'The JWT <code>kid</code> doesn\'t match any key in Blackboard\'s JWKS — likely a key rotation.',
+      fix: 'Restart <code>./start.sh</code> to clear the local JWKS cache, then relaunch.'
+    },
+  ];
+  for (var i = 0; i < hints.length; i++) {
+    if (hints[i].match.test(errorMsg)) return hints[i];
+  }
+  return null;
 }
 
 function metaItem(label, valHtml) {
