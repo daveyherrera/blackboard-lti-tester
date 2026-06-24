@@ -1318,6 +1318,8 @@ nav { flex: 1; padding: 10px 8px; }
 var currentPage = 'dashboard';
 var statusData = null;
 var launchesData = [];
+var rawTokenMap = {};   // launchId → raw JWT string, survives re-renders
+var decodedOpen = new Set(); // launchIds whose decoded view is currently open
 var launchesPolling = null;
 var statusPolling = null;
 var tsInterval = null;
@@ -1746,14 +1748,19 @@ function renderJwtInspector(launch) {
   // Raw token
   var raw = launch.raw_token || '';
   var tokenHtml = '';
+  var lid = launch.id || 'x';
   if (raw && raw !== '[stored — fetch by ID]' && raw !== '[redacted]') {
-    var tokenId = 'tok-' + (launch.id || 'x');
+    rawTokenMap[lid] = raw; // persist across re-renders
+    var tokenId = 'tok-' + lid;
+    var isDecoded = decodedOpen.has(lid);
     tokenHtml += '<div class="raw-token-box" id="' + tokenId + '">' + esc(raw) + '</div>';
     tokenHtml += '<div class="jwt-token-actions">';
     tokenHtml += '<button onclick="copyJwt(\'' + tokenId + '\')">⧉ Copy Token</button>';
-    tokenHtml += '<button onclick="toggleJwtDecode(\'' + tokenId + '-decoded\',\'' + esc(raw) + '\')">⊞ Decode</button>';
+    tokenHtml += '<button onclick="toggleJwtDecode(\'' + lid + '\')">' + (isDecoded ? '⊟ Hide Decoded' : '⊞ Decode') + '</button>';
     tokenHtml += '</div>';
-    tokenHtml += '<div id="' + tokenId + '-decoded" style="display:none"></div>';
+    tokenHtml += '<div id="' + tokenId + '-decoded" style="' + (isDecoded ? '' : 'display:none') + '">';
+    if (isDecoded) tokenHtml += renderJwtDecoded(raw);
+    tokenHtml += '</div>';
   } else if (raw) {
     tokenHtml += '<div class="raw-token-box">' + esc(raw) + '</div>';
   } else {
@@ -1781,12 +1788,13 @@ function copyJwt(boxId) {
   });
 }
 
-function toggleJwtDecode(targetId, rawToken) {
-  var el = document.getElementById(targetId);
-  if (!el) return;
-  if (el.style.display !== 'none') { el.style.display = 'none'; return; }
-  el.innerHTML = renderJwtDecoded(rawToken);
-  el.style.display = 'block';
+function toggleJwtDecode(launchId) {
+  if (decodedOpen.has(launchId)) {
+    decodedOpen.delete(launchId);
+  } else {
+    decodedOpen.add(launchId);
+  }
+  renderLaunches();
 }
 
 function renderJwtDecoded(raw) {
