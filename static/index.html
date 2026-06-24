@@ -375,6 +375,21 @@ nav { flex: 1; padding: 10px 8px; }
 .launch-id { font-size: 10px; color: var(--dim); font-family: monospace; }
 .chevron { color: var(--dim); font-size: 12px; transition: transform 0.2s; flex-shrink: 0; }
 .chevron.open { transform: rotate(90deg); }
+.lc-badge { display:inline-flex; align-items:center; gap:3px; font-size:11px; font-weight:500; padding:2px 8px; border-radius:20px; flex-shrink:0; }
+.lc-badge-dl   { background:rgba(99,102,241,0.18); color:#a5b4fc; }
+.lc-badge-rl   { background:rgba(20,184,166,0.18); color:#5eead4; }
+.lc-badge-basic{ background:rgba(100,116,139,0.25); color:#94a3b8; }
+.lc-badge-valid  { background:rgba(34,197,94,0.12); color:var(--success); }
+.lc-badge-invalid{ background:rgba(239,68,68,0.14); color:var(--error); }
+.lc-collapsed-meta { font-size:12px; color:var(--muted); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lc-summary { padding:12px 16px; border-top:1px solid var(--border); }
+.lc-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 24px; margin-bottom:10px; }
+.lc-row { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); }
+.lc-row strong { color:var(--bright); font-weight:500; }
+.lc-role-tag { font-size:10px; background:rgba(255,255,255,0.06); border:1px solid var(--border); border-radius:4px; padding:1px 5px; color:var(--muted); }
+.lc-resource-row { grid-column:1/-1; display:flex; align-items:center; gap:5px; font-size:12px; color:var(--muted); padding-bottom:7px; border-bottom:1px solid rgba(51,65,85,0.5); margin-bottom:2px; }
+.lc-detail-btn { display:flex; align-items:center; gap:4px; font-size:11px; color:var(--accent); cursor:pointer; background:none; border:none; padding:0; font-family:inherit; }
+.lc-detail-btn:hover { opacity:0.75; }
 
 /* ── JWT inspector ── */
 .jwt-inspector {
@@ -1323,7 +1338,8 @@ var decodedOpen = new Set(); // launchIds whose decoded view is currently open
 var launchesPolling = null;
 var statusPolling = null;
 var tsInterval = null;
-var expandedLaunches = new Set();
+var expandedLaunches = new Set(); // summary tier open
+var detailLaunches = new Set();   // JWT detail tier open
 var highlightedLaunch = null;
 var urlMap = {};
 
@@ -1540,6 +1556,9 @@ function clearLaunches() {
     .then(function() {
       launchesData = [];
       expandedLaunches.clear();
+      detailLaunches.clear();
+      rawTokenMap = {};
+      decodedOpen.clear();
       renderLaunches();
       showToast('Launches cleared', 'success');
     })
@@ -1565,6 +1584,33 @@ function getLtiMessageType(payload) {
   return t;
 }
 
+function getMsgTypeMeta(payload) {
+  var t = payload['https://purl.imsglobal.org/spec/lti/claim/message_type'] || '';
+  if (t === 'LtiDeepLinkingRequest')  return { label: 'Deep linking',  cls: 'lc-badge-dl' };
+  if (t === 'LtiResourceLinkRequest') return { label: 'Resource link', cls: 'lc-badge-rl' };
+  return { label: 'LTI launch', cls: 'lc-badge-basic' };
+}
+
+function getSimpleRole(payload) {
+  var roles = payload['https://purl.imsglobal.org/spec/lti/claim/roles'] || [];
+  if (roles.some(function(r){ return /Instructor/i.test(r); }))       return 'Instructor';
+  if (roles.some(function(r){ return /Administrator/i.test(r); }))    return 'Admin';
+  if (roles.some(function(r){ return /TeachingAssistant/i.test(r); }))return 'TA';
+  if (roles.some(function(r){ return /Learner|Student/i.test(r); }))  return 'Student';
+  return '';
+}
+
+function getResourceLinkTitle(payload) {
+  var rl = payload['https://purl.imsglobal.org/spec/lti/claim/resource_link'] || {};
+  return rl.title || '';
+}
+
+function formatFullTs(ts) {
+  if (!ts) return '';
+  var d = new Date(ts * 1000);
+  return d.toLocaleString(undefined, { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', second:'2-digit' });
+}
+
 function getUserDisplay(payload) {
   var name = payload.name || ((payload.given_name || '') + ' ' + (payload.family_name || '')).trim();
   var email = payload.email || '';
@@ -1586,28 +1632,54 @@ function renderLaunches() {
   }
   var html = '';
   launchesData.forEach(function(launch) {
-    var isExpanded = expandedLaunches.has(launch.id);
-    var isHighlighted = launch.id === highlightedLaunch;
-    var msgType = getLtiMessageType(launch.payload || {});
-    var userDisplay = getUserDisplay(launch.payload || {});
-    var courseDisplay = getCourseDisplay(launch.payload || {});
-    var detail = [userDisplay, courseDisplay].filter(Boolean).join(' — ');
-    html += '<div class="launch-card' + (isHighlighted ? ' highlighted' : '') + '" id="lc-' + launch.id + '">';
-    html += '<div class="launch-card-header" onclick="toggleLaunch(\'' + launch.id + '\')">';
-    html += '<div class="status-dot ' + (launch.valid ? 'ok' : 'err') + '"></div>';
-    html += '<div class="launch-meta">';
-    html += '<div class="launch-type">' + esc(msgType) + '</div>';
-    html += '<div class="launch-detail">' + esc(detail || 'No user info') + '</div>';
+    var id = launch.id;
+    var payload = launch.payload || {};
+    var isExpanded = expandedLaunches.has(id);
+    var isDetail   = detailLaunches.has(id);
+    var isHighlighted = id === highlightedLaunch;
+    var typeMeta = getMsgTypeMeta(payload);
+    var ctx = payload['https://purl.imsglobal.org/spec/lti/claim/context'] || {};
+    var courseName = ctx.title || ctx.label || ctx.id || '';
+    var courseCode = ctx.label || '';
+    var userName = payload.name || ((payload.given_name||'')+' '+(payload.family_name||'')).trim() || 'Unknown user';
+    var userEmail = payload.email || '';
+    var role = getSimpleRole(payload);
+    var rlTitle = getResourceLinkTitle(payload);
+    var isRL = (payload['https://purl.imsglobal.org/spec/lti/claim/message_type'] === 'LtiResourceLinkRequest');
+
+    // ── Collapsed header ──────────────────────────────────────────────────
+    var cardBorder = (!launch.valid) ? ' style="border-color:rgba(239,68,68,0.4)"' : '';
+    html += '<div class="launch-card' + (isHighlighted?' highlighted':'') + '" id="lc-' + id + '"' + cardBorder + '>';
+    html += '<div class="launch-card-header" onclick="toggleLaunch(\'' + id + '\')">';
+    html += '<span class="lc-badge ' + typeMeta.cls + '">' + typeMeta.label + '</span>';
+    html += '<span class="lc-badge ' + (launch.valid ? 'lc-badge-valid' : 'lc-badge-invalid') + '">' + (launch.valid ? '✓ Valid' : '✗ Invalid') + '</span>';
+    html += '<span class="lc-collapsed-meta">' + esc(courseName ? courseName + (userName ? ' · ' + userName : '') : userName) + '</span>';
+    html += '<span class="launch-time" data-ts="' + launch.received_at + '" style="flex-shrink:0">' + timeAgo(launch.received_at) + '</span>';
+    html += '<span class="launch-id" style="flex-shrink:0">#' + esc(id) + '</span>';
+    html += '<div class="chevron' + (isExpanded?' open':'') + '">›</div>';
     html += '</div>';
-    html += '<div style="text-align:right">';
-    html += '<div class="launch-time" data-ts="' + launch.received_at + '">' + timeAgo(launch.received_at) + '</div>';
-    html += '<div class="launch-id">#' + esc(launch.id) + '</div>';
-    html += '</div>';
-    html += '<div class="chevron' + (isExpanded ? ' open' : '') + '">›</div>';
-    html += '</div>';
+
+    // ── Summary tier ──────────────────────────────────────────────────────
     if (isExpanded) {
+      html += '<div class="lc-summary">';
+      html += '<div class="lc-grid">';
+      if (isRL && rlTitle) {
+        html += '<div class="lc-resource-row">↳ <span style="font-size:11px;color:var(--dim)">Content item:</span>&nbsp;<strong>' + esc(rlTitle) + '</strong></div>';
+      }
+      html += '<div class="lc-row">📚 <strong>' + esc(courseName || '—') + '</strong>' + (courseCode && courseCode !== courseName ? '&nbsp;<span style="font-size:11px;color:var(--dim)">' + esc(courseCode) + '</span>' : '') + '</div>';
+      html += '<div class="lc-row">🕐 ' + esc(formatFullTs(launch.received_at)) + '</div>';
+      html += '<div class="lc-row">👤 ' + esc(userName) + (role ? '&nbsp;<span class="lc-role-tag">' + esc(role) + '</span>' : '') + '</div>';
+      html += '<div class="lc-row">✉ ' + esc(userEmail || '—') + '</div>';
+      html += '</div>';
+      html += '<button class="lc-detail-btn" onclick="toggleDetail(\'' + id + '\')">' + (isDetail ? '▲ Hide JWT claims & token' : '▼ Show JWT claims & token') + '</button>';
+      html += '</div>';
+    }
+
+    // ── Detail tier (JWT inspector + token) ───────────────────────────────
+    if (isExpanded && isDetail) {
       html += renderJwtInspector(launch);
     }
+
     html += '</div>';
   });
   container.innerHTML = html;
@@ -1616,20 +1688,31 @@ function renderLaunches() {
 function toggleLaunch(id) {
   if (expandedLaunches.has(id)) {
     expandedLaunches.delete(id);
+    detailLaunches.delete(id);
   } else {
     expandedLaunches.add(id);
-    // Fetch full detail if not already loaded
-    var existing = launchesData.find(function(l) { return l.id === id; });
-    if (existing && existing.raw_token === undefined) {
-      apiFetch(getBackendUrl() + '/api/launches/' + id)
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-          var idx = launchesData.findIndex(function(l) { return l.id === id; });
-          if (idx !== -1) launchesData[idx] = d;
-          renderLaunches();
-        });
-      return;
-    }
+  }
+  renderLaunches();
+}
+
+function toggleDetail(id) {
+  if (detailLaunches.has(id)) {
+    detailLaunches.delete(id);
+    renderLaunches();
+    return;
+  }
+  detailLaunches.add(id);
+  var existing = launchesData.find(function(l) { return l.id === id; });
+  if (existing && existing.raw_token === undefined) {
+    apiFetch(getBackendUrl() + '/api/launches/' + id)
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        rawTokenMap[id] = d.raw_token;
+        var idx = launchesData.findIndex(function(l) { return l.id === id; });
+        if (idx !== -1) launchesData[idx] = d;
+        renderLaunches();
+      });
+    return;
   }
   renderLaunches();
 }
