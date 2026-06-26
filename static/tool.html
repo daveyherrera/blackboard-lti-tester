@@ -388,6 +388,11 @@ function renderTool() {
   var hasAgs = !!payload['https://purl.imsglobal.org/spec/lti-ags/claim/endpoint'];
   var hasNrps = !!payload['https://purl.imsglobal.org/spec/lti-nrps/claim/namesroleservice'];
 
+  var isRl = msgType === 'LtiResourceLinkRequest';
+  var rl = payload['https://purl.imsglobal.org/spec/lti/claim/resource_link'] || {};
+  var custom = payload['https://purl.imsglobal.org/spec/lti/claim/custom'] || {};
+  var targetLinkUri = payload['https://purl.imsglobal.org/spec/lti/claim/target_link_uri'] || '';
+
   var html = '';
 
   // Banner
@@ -396,10 +401,12 @@ function renderTool() {
   html += '<div class="launch-meta">';
   html += metaItem('User', (givenName + ' ' + familyName).trim() || payload.sub || '—');
   html += metaItem('Email', userEmail || '—');
-  html += metaItem('Course', context.label || context.title || '—');
+  html += metaItem('Course', (context.title || context.label || '—') + (context.label && context.label !== context.title ? ' <span style="opacity:.6;font-size:11px">(' + esc(context.label) + ')</span>' : ''));
   html += metaItem('Launch Type', isDl
     ? '<span class="badge badge-dl">Deep Linking</span>'
-    : '<span class="badge badge-regular">Regular Launch</span>');
+    : isRl
+      ? '<span class="badge badge-dl" style="background:rgba(20,184,166,0.18);color:#5eead4">Resource Link</span>'
+      : '<span class="badge badge-regular">Regular Launch</span>');
   html += metaItem('Validation', d.valid
     ? '<span class="badge badge-valid">✓ Valid</span>'
     : '<span class="badge badge-invalid">✗ Invalid</span>');
@@ -413,6 +420,40 @@ function renderTool() {
       + '</div>';
   }
   html += '</div>';
+
+  // Resource Link card — shown only for LtiResourceLinkRequest launches
+  if (isRl) {
+    var customKeys = Object.keys(custom);
+    html += '<div class="card" style="margin-bottom:16px">';
+    html += '<div class="card-header"><div class="card-icon">🔗</div><div><div class="card-title">Resource Link</div><div class="card-subtitle">Configuration of the content item that triggered this launch</div></div></div>';
+    html += '<div class="card-body">';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+    var rlRows = [
+      ['Title',          rl.title       || '—'],
+      ['Description',    rl.description || '—'],
+      ['Resource Link ID', rl.id        || '—'],
+      ['Target Link URI', targetLinkUri || '—'],
+    ];
+    rlRows.forEach(function(row) {
+      html += '<tr style="border-bottom:1px solid rgba(51,65,85,0.4)">';
+      html += '<td style="padding:7px 0;color:var(--muted);width:38%;white-space:nowrap">' + esc(row[0]) + '</td>';
+      html += '<td style="padding:7px 0 7px 12px;color:var(--bright);word-break:break-all;font-family:' + (row[0]==='Resource Link ID'||row[0]==='Target Link URI'?'monospace':'inherit') + '">' + esc(row[1]) + '</td>';
+      html += '</tr>';
+    });
+    if (customKeys.length) {
+      html += '<tr style="border-bottom:1px solid rgba(51,65,85,0.4)"><td colspan="2" style="padding:8px 0 4px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em">Custom Parameters</td></tr>';
+      customKeys.forEach(function(k) {
+        html += '<tr style="border-bottom:1px solid rgba(51,65,85,0.25)">';
+        html += '<td style="padding:5px 0;color:var(--muted);font-family:monospace;font-size:11px">' + esc(k) + '</td>';
+        html += '<td style="padding:5px 0 5px 12px;color:var(--bright);font-family:monospace;font-size:11px;word-break:break-all">' + esc(String(custom[k])) + '</td>';
+        html += '</tr>';
+      });
+    } else {
+      html += '<tr><td colspan="2" style="padding:7px 0;color:var(--dim);font-size:11px">No custom parameters</td></tr>';
+    }
+    html += '</table>';
+    html += '</div></div>';
+  }
 
   // Action grid
   html += '<div class="action-grid">';
