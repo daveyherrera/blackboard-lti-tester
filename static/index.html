@@ -1963,6 +1963,11 @@ var LTI_ERROR_HINTS = [
     what: 'The JWT header contains a <code>kid</code> (key ID) that does not exist in Blackboard\'s JWKS. This happens when Blackboard rotates its signing keys.',
     fix: 'Blackboard\'s JWKS cache refreshes hourly. Restart <code>./start.sh</code> to clear the local JWKS cache and try launching again.'
   },
+  {
+    match: /invalid redirect|redirect.*url|redirect_uri/i,
+    what: 'Blackboard\'s OIDC endpoint rejected the <code>redirect_uri</code> sent by this server because it does not match the <strong>Tool Redirect URL</strong> registered in the Blackboard Developer Portal. The server sends <code>/redirect</code> on the current ngrok domain.',
+    fix: 'Go to <strong>developer.blackboard.com</strong> → your app registration → set the <strong>Tool Redirect URL(s)</strong> to <code>https://cute-calm-trout.ngrok-free.app/redirect</code>. If your ngrok domain has changed, update both the registered URL and the domain in <code>.env</code>.'
+  },
 ];
 
 function getLtiErrorHint(errorMsg) {
