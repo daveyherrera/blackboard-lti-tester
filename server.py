@@ -492,8 +492,7 @@ async def oidc_login(request: Request):
         "client_id": client_id,
     }
 
-    ngrok_url = await get_ngrok_url() or "http://localhost:8080"
-    redirect_uri = f"{ngrok_url}/redirect"
+    redirect_uri = f"{PUBLIC_BACKEND_URL}/redirect"
 
     from urllib.parse import urlencode
 
