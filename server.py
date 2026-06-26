@@ -464,6 +464,7 @@ async def startup():
 
 # ── LTI endpoints ─────────────────────────────────────────────────────────────
 
+@app.get("/login")
 @app.get("/oidc-login")
 async def oidc_login(request: Request):
     """Step 1: Receive OIDC initiation from Blackboard."""

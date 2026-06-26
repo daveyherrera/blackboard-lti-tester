@@ -618,6 +618,11 @@ function getLtiErrorHint(errorMsg, payload) {
       fix: 'Restart <code>./start.sh</code> to clear the local JWKS cache, then relaunch.'
     },
     {
+      match: /404.*login|login.*404|not found.*login/i,
+      what: 'Blackboard sent the OIDC login initiation to an endpoint that does not exist on this server. The <strong>Login Initiation URL</strong> registered in the Blackboard Developer Portal does not match the server\'s route.',
+      fix: 'In the Blackboard Developer Portal, set the Login Initiation URL to <code>https://cute-calm-trout.ngrok-free.app/oidc-login</code>. The server also now accepts <code>/login</code> as an alias for backwards compatibility.'
+    },
+    {
       match: /placement.*deleted|corresponding placement/i,
       what: 'Blackboard accepted the deep link JWT but cannot resolve the <code>url</code> in the content item back to a registered placement. This happens when an external URL (e.g. google.com) is used as the Target Link URI in an <strong>LTI Resource Link</strong> content item.',
       fix: 'The Target Link URI for an LTI Resource Link must be the tool\'s own OIDC login URL (e.g. <code>https://cute-calm-trout.ngrok-free.app/oidc-login</code>). Use the <strong>External URL</strong> content type instead if you want to link to a web page.'
